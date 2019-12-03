@@ -17,7 +17,8 @@ T = 70
 t = 1:T
 age = t .+ 25
 
-## Uncondtional probability of surviving to age t, from NCHS 1992 (Chung 1994)
+## Uncondtional probability of surviving to age t
+# Data from NCHS 1992 (Chung 1994)
 age_data = [60:5:85; 95.]
 S_data = [85.89; 80.08; 72.29; 61.52; 48.13; 32.33; 0]./100
 S_interp = LinearInterpolation(age_data, S_data)
@@ -32,11 +33,25 @@ u(c, γ = 2.) = 1/(1-γ)*c^(1-γ)
 ## Discount factor and interest rate
 r = 0.03
 β = 0.971
-WI_ratio = 2.5
+WI_ratio = 2.5  # aggregate wealth-income ratio
 
 ## Income process
-# κ = zeros(eltype(y_0),N,T) # *** Get from data
-κ = zeros(Float64,N,T_ret-1) # *** Get from data
+# KV 2010: "The estimated profile peaks after 21 years of labor market experience at roughly twice the initial value, and
+# then it slowly declines to about 80 percent of the peak value."
+
+# From master's thesis (estimated from Hansen?)
+# Ey = [0.5676772162 0.6084932081 0.6493091999 0.6901819595 0.7290110811 0.7678969704 0.8067828597 0.845668749 0.8845546383 0.9234405276 0.9623264169 0.9773698632 0.9899155296 1.0075135233 1.0226137373 1.0376571835 1.0527573975 1.0678008437 1.0828442899 1.0979445039 1.1129879501 1.1139530014 1.1149180526 1.1159398716 1.1169049229 1.1178699742 1.1188350254 1.1198000767 1.120765128 1.1217301792 1.1226952305 1.1183241159 1.1139530014 1.1095818868 1.1052107722 1.1008396577 1.0964685431 1.0920974285 1.087726314 1.0833551994 1.0789840849 1.0419147626 1.0048454404 0.9677761182 0.9307635637]
+# plot([20:64],Ey'./maximum(Ey))
+
+# From Huggett et al. 2006, PSID data up to 1992
+age_y = [20; 25; 30; 35; 40; 45; 50; 55; 57.5]
+y_data = [55.12; 76.59; 91.38; 101.63; 106.67; 107.64; 106.67; 103.58; 100]
+y_interp = LinearInterpolation(age_y, y_data, extrapolation_bc = Line())
+# plot([0:39],κ./maximum(κ), ylims=(0,1))
+# Assume KV's description is about levels. Then my data peaks slightly later and doesn't decline as much as KV describes.
+κ = log.(map(y_interp,collect(20:59)))
+
+# Directly from KV2010
 σ_η = 0.01
 σ_z0 = 0.15
 σ_ε = 0.05
@@ -77,7 +92,10 @@ end
 
 ## Initial wealth
 A_0 = zeros(Float64,N)
-# empirical one too?
+# Optional: Do empirical one too
+# "Precisely, we target the empirical distribution of financial wealth-earnings ratios in the population of house
+# holds aged 20-30 in the SCF. We assume that the initial draw of earnings is independent of the initial draw of this
+# ratio, since in the data the empirical correlation is 0.02."
 
 ## Borrowing limit
 # how to calc? A_min =   # NBC
@@ -103,7 +121,7 @@ Y_tilde_fn(Y, τ_s) = find_zero(Y_tilde -> Y_tilde - τ(Y_tilde,τ_s) - Y, Y) # 
 
 
 # Iterate to calibrate τ_s
-function gross_labor_income(Y_l; τ_s_0 = 0.25, Kp = 10., Kd = 0.1, tol = 1E-3, max_iter = 1000, nonconvergence_message = true, verbose = false)
+function gross_labor_income(Y_l; τ_s_0 = 0.25, Kp = .8, Kd = .1, tol = 1E-3, max_iter = 1000, nonconvergence_message = true, verbose = false)
     #iterate to
     Y_tilde = similar(Y_l)
     τ_s = τ_s_0
@@ -113,7 +131,7 @@ function gross_labor_income(Y_l; τ_s_0 = 0.25, Kp = 10., Kd = 0.1, tol = 1E-3, 
         Y_tilde = Y_tilde_fn.(Y_l,τ_s)
         err_old = err
         err = sum(τ.(Y_tilde,τ_s))/sum(Y_l) - 0.25
-        verbose ? println(err) : nothing
+        verbose ? println(err, " ", τ_s) : nothing
         τ_s_old = τ_s
         τ_s += -Kp*err + Kd*(err-err_old)
         iter += 1
@@ -226,7 +244,7 @@ end
 # Main program
 Random.seed!(1234)
 Y_l = net_labor_income(N, T_ret, σ_ε, σ_η, σ_z0, κ)
-(Y_tilde, τ_s) = gross_labor_income(Y_l, τ_s_0 = 1.45, verbose = true)
+(Y_tilde, τ_s) = gross_labor_income(Y_l, τ_s_0 = 0.031, verbose = true) #0.031 - Initial guess from Gouveia Strauss 1994
 Y_tilde_SS = gross_SS_income(Y_tilde)
 Y_SS = Y_tilde_SS - τ.(0.85.*Y_tilde_SS, τ_s)
 Y = hcat(Y_l, repeat(Y_SS, 1, T-(T_ret-1)) )
