@@ -153,9 +153,54 @@ Y_mc_ns = zeros(length(mcs_ns)+1,N)
 [Y_mc_ns[:,i] = simulate_ns(mcs_ns, 10) for i in 1:N]
 plot!(0:T, var(Y_mc_ns, dims = 2), label="MC all mine")
 
+
 ### Now let's try to discretize the transitory-persistent process!!!
+σ_ε = sqrt(0.0161)    #variance is σ_η^2=0.0161 in FGP2019
+σ_u = sqrt(0.063)   #variance is σ_u^2=0.063 in FGP2019
+σ_η0 = 0.             # In FGP2019
+ρ = 1.            # ρ ∈ {0.95,0.98,1} in FGP2019 section 4.1.1
+N = 200000
+T = 40
+n = 11
+
+# Simulate DGP
+Random.seed!(1234)
+Y = simulate_PTincome(N, T, σ_u, σ_ε, ρ, σ_η0)
+plot(1:T, var(Y, dims = 2), label="DGP", legend=:bottomright)
+
+# Markov chain for persistent component
+mcs_FGP = rouwenhorst_ns(n, T, ρ, σ_ε, σ_η0)
+η = zeros(length(mcs_FGP)+1,N)
+[η[:,i] = simulate_ns(mcs_FGP, round(Int,n/2)) for i in 1:N]
+# plot!(0:T, var(η, dims = 2), label="eta_FGP")
+
+# Markov simulation with actual transitory component
+u = σ_u*randn(size(η))
+Y_m = exp.(η + u)
+plot!(0:T, var(Y_m, dims = 2), label="Y_m_FGP")
+
+# Markov simulation with discretized transitory component
+# Transitory component
+mc_trans = rouwenhorst(n, 0., σ_u)
+u_mc = zeros(T+1,N)
+[u_mc[:,i] = simulate(mc_trans, T+1, init = round(Int,n/2)) for i in 1:N]
+# plot!(0:T, var(u_mc, dims = 2), label="u_mc", xlabel="t", ylabel="Variance", legend=:bottomright)
+
+# Put together
+Y_mm = exp.(η + u_mc)
+plot!(0:T, var(Y_mm, dims = 2), label="Y_mm_FGP")
+xlims!(1.,35.)
+ylims!(0.,1.8)
+
+Y_mm = Y_mm[2:end,:]
+sim_error = (var(Y_mm, dims=2)-var(Y,dims=2))./var(Y,dims=2)*100
+sim_error[end]
+sim_error = (mean(Y_mm, dims=2)-mean(Y,dims=2))./mean(Y,dims=2)*100
+sim_error[end]
+# These compare quite well with FPG2019 Table 1
 
 
+plot()
 ### Then we calculate expectations!!!
 
 # PROBLEMS
@@ -207,4 +252,13 @@ stop
 # plot()
 # for i in 1:10
 #     display(plot!(1:T+1,Y_mc_qe1[:,i]))
+# end
+#
+#
+# #######
+# plot()
+# for i in 100:110
+#     plot!(Y[:,i], legend=:none) |>display
+#     plot!(Y_m[:,i], line=:dash) |>display
+#     # plot!(η[:,i]) |>display
 # end
