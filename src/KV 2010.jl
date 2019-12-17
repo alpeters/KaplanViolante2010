@@ -189,7 +189,7 @@ function policyfn(mcs_z, mc_ε)
 
     # Working years
     for t in reverse(1:T_ret-2) #reverse(t)
-        Ec = zeros(Float64,a_gridpoints,z_gridpoints)
+        Ec = zeros(Float64,a_gridpoints,z_gridpoints)   # Ec =  E_t[c_{ŧ+1}^{-γ}]
         for (a_t1_ind, a_t1) in enumerate(A_vals), (z_ind, z) in enumerate(mcs_z[t].state_values)
             A_t2 = extrapolate(interpolate(A[t+2], BSpline(Linear())), 0. )(a,z)
             for (ε_ind, ε) in enumerate(mc_ε.state_values), (z_t1_ind, z_t1) in enumerate(mcs_z[t].state_values)
@@ -253,9 +253,16 @@ li.(29.,17.5)  #extrapolate with boundary rules
 
 
 # Todo
-# 1. bi-linear interpolation of decision rule
-# 2. Calculate expectations for working years - how to know current z for expectation?
-# 5. check if borrowing constraint is working
-# 3. Non-zero borrowing limit (not idiosyncratic)
-# 4. return z from income dgp
-# 6. Survival probability in KV? test both ways
+# 1. budget constraint for working period!
+# 2. Check expectation for working years
+# 3. check invert_rule and grid_shift
+# 4. check if borrowing constraint is working
+# 5. use indices in simulate_economy
+# 6. Non-zero borrowing limit (not idiosyncratic)
+# We allow for borrowing subject only to the restriction that with probability one,
+# households who live up to age T do not die in debt (i.e., the "natural debt limit").
+# The level of the natural debt limit depends on the discretization of the income
+# process, through the level of the lowest possible income realization. In the
+# benchmark economy, the natural borrowing limit decreases from approximately
+# 5.8 times average annual earnings at age 25 to 2 5 times average earnings at age 50.
+# 7. Survival probability in KV? test both ways
