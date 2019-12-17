@@ -1,9 +1,92 @@
 # Replicate Kaplan Violante 2010
 # Allen Peters
 # November 7, 2019
-
+# command free QuantEcon to revert to proper version of QuantEcon
 using Plots, LinearAlgebra, Statistics, Random, Roots, Interpolations
-using QuantEcon # requires my version with non-stationary markov chain functions
+using QuantEcon
+
+########
+# From development version of QuantEcon
+import QuantEcon._rouwenhorst
+
+@doc doc"""
+Extended Rouwenhorst's method to approximate non-stationary AR(1) processes,
+following Fella, Gallipoli, Pan (2019).
+
+The process follows
+
+```math
+    y_t = \rho_t y_{t-1} + \epsilon_t
+```
+
+where ``\epsilon_t \sim N (0, \sigma_t^2)``
+
+##### Arguments
+- `N::Integer` : Number of points in markov process
+- `T::Integer` : Length of simulation
+- `ρ::Array or Real` : Persistence parameter(s) in AR(1) process, can be >=1
+- `σ::Array or Real` : Standard deviation(s) of random component of AR(1) process
+- `σ_y0::Real` : Standard deviation of initial y value y_0
+
+##### Returns
+
+- `mc::Vector{MarkovChain}` : Vector of Markov chains (length T) holding
+                                the state values and transition matrix
+
+"""
+function rouwenhorst_ns(N::Integer, T::Integer, ρ::Array, σ::Array, σ_y0::Real)
+    #for input to _rouwenhorst(), because μ is not implemented
+    m = 0.0
+
+    # a cheap way to initialize a vector of MarkovChains
+    MarkovChains = fill(rouwenhorst(N, 0.9, σ[1]), T)
+
+    for t in 1:T
+        σ_yt = sqrt(ρ[t]^2 * σ_y0^2 + σ[t]^2)
+        p  = (1+ρ[t]*σ_y0/σ_yt)/2
+        Θ = [p 1-p; 1-p p]
+        ψ = sqrt(N-1) * σ_yt
+        state_values, p = _rouwenhorst(p, p, m, ψ, N)
+        MarkovChains[t] = MarkovChain(p, state_values)
+        σ_y0 = σ_yt
+    end
+    return MarkovChains
+end
+
+function rouwenhorst_ns(N::Integer, T::Integer, ρ::Real, σ::Real, σ_y0::Real)
+    rouwenhorst_ns(N, T, ρ.*ones(T), σ.*ones(T), σ_y0)
+end
+
+@doc doc"""
+Simulate one sample path of the non-stationary vector of Markov chains `mcs`.
+The resulting vector has the state values of `mcs` as elements.
+
+### Arguments
+
+- `mcs::Vector{MarkovChain}` : Vector of MarkovChains.
+- `;init::Int` : Index of initial state
+
+### Returns
+
+- `X::Vector` : Vector containing the sample path, with length
+  length(mcs)+1 (includes initial state)
+"""
+function simulate_ns(mcs::Vector, init::Int)
+    ind_0 = init
+    ind = zeros(Int, length(mcs))
+    X = zeros(Real, length(mcs))
+
+    for t in eachindex(mcs)
+        X[t] = simulate(mcs[t], 2, init = ind_0)[2]
+        ind[t] = findmin( abs.(mcs[t].state_values .- X[t]) )[2]
+        if t < length(mcs)
+            ind_0 = ind[t] #findmin( abs.(mcs[t].state_values .- X[t]) )[2]
+        end
+    end
+    ind = [init; ind]
+    X = [mcs[1].state_values[init]; X]
+end
+############
 
 # Parameters
 ## Demographics
@@ -192,14 +275,15 @@ function policyfn(mcs_z, mc_ε)
 
     # Working years
     for t in reverse(1:T_ret-2)
-        At = Float32[]
-        for ε in mc_ε.state_values, (z_ind, z) in enumerate(mcs_z[t].state_values), (a_t1_ind, a_t1) in enumerate(A_vals)
+        At = zeros(a_gridpoints,z_gridpoints,ε_gridpoints)
+        li = extrapolate(interpolate(A[t+2], BSpline(Linear())), 0. )
+        for (ε_ind, ε) in enumerate(mc_ε.state_values), (z_ind, z) in enumerate(mcs_z[t].state_values), (a_t1_ind, a_t1) in enumerate(A_vals)
             Ec = 0.
             for (ε_t1_ind, ε_t1) in enumerate(mc_ε.state_values), (z_t1_ind, z_t1) in enumerate(mcs_z[t].state_values)
-                A_t2 = extrapolate(interpolate(A[t+2], BSpline(Linear())), 0. )(a_t1_ind, z_t1_ind, ε_t1_ind) # CHECK THESE INDICES ARE RIGHT
+                A_t2 = li(a_t1_ind, z_t1_ind, ε_t1_ind) # CHECK THESE INDICES ARE RIGHT
                 Ec += mcs_z[t].p[z_ind, z_t1_ind] * mc_ε.p[1,ε_t1_ind] * ( (1+r).*a_t1 + exp(κ[t+1] + z_t1 + ε_t1) - A_t2 )^(-γ)
             end
-            push!(At, 1/(1+r) .* ( ( β*(1+r)*Ec )^(-1/γ) - exp(κ[t] + z + ε) + a_t1 ) )
+            At[a_t1_ind, z_ind, ε_ind] = 1/(1+r) .* ( ( β*(1+r)*Ec )^(-1/γ) - exp(κ[t] + z + ε) + a_t1 )
         end
         return At
         # A[t+1] = grid_shift(invert_rule(At, A_vals), A_vals, A_vals, Z_vals_old, Z_vals_new) # ********
