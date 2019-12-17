@@ -49,13 +49,15 @@ function Y(N, T_ret, σ_ε, σ_η, σ_z0, κ)
 # Takes standard deviations as arguments (not varicances)!
     Y = zeros(Float64, N, T_ret-1)
     z = similar(Y)
+    ε = similar(Y)
     z[:,1] = σ_z0 .* randn(N) + σ_η .* randn(N)
 
     for t in 1:(T_ret-1)
-        Y[:,t] = exp.( κ[t] .+ z[:,t] + σ_ε .* randn(N) )
+        ε[:,t] = σ_ε .* randn(N)
+        Y[:,t] = exp.( κ[t] .+ z[:,t] + ε[:,t] )
         t < (T_ret-1) ? z[:,t+1] = z[:,t] + σ_η .* randn(N) : nothing
     end
-    return (Y,z)
+    return (Y,z, ε)
 end
 
 # Gross earnings Y_tilde
@@ -106,7 +108,8 @@ z_gridpoints = 39
 mcs_z = rouwenhorst_ns(z_gridpoints, T_ret, 1., σ_η, σ_z0)
 # Discretize transitory component of income
 # transitory component is approximated with 19 equally spaced points
-mc_ε = rouwenhorst(19, 0., σ_ε)
+ε_gridpoints = 19
+mc_ε = rouwenhorst(ε_gridpoints, 0., σ_ε)
 
 function invert_rule(A,A_vals)
     A_interp = similar(A)
@@ -159,7 +162,7 @@ function policyfn(mcs_z, mc_ε)
     # and either permanent component of income (z)
     # or average lifetime earnings y_tilde
     # Matrices of form a x z/y_tilde
-    A = vcat(fill(zeros(Float64, a_gridpoints, z_gridpoints), T_ret-1),
+    A = vcat(fill(zeros(Float64, a_gridpoints, z_gridpoints, ε_gridpoints), T_ret-1),
      fill(zeros(Float64, a_gridpoints, PY_tilde_gridpoints), (T)-(T_ret-1)) )
 
     # Last period
@@ -188,29 +191,31 @@ function policyfn(mcs_z, mc_ε)
     end
 
     # Working years
-    for t in reverse(1:T_ret-2) #reverse(t)
-        Ec = zeros(Float64,a_gridpoints,z_gridpoints)   # Ec =  E_t[c_{ŧ+1}^{-γ}]
-        for (a_t1_ind, a_t1) in enumerate(A_vals), (z_ind, z) in enumerate(mcs_z[t].state_values)
-            A_t2 = extrapolate(interpolate(A[t+2], BSpline(Linear())), 0. )(a,z)
-            for (ε_ind, ε) in enumerate(mc_ε.state_values), (z_t1_ind, z_t1) in enumerate(mcs_z[t].state_values)
-                Ec[a_ind, z_ind] += mcs_z[t].p[z_ind, z_t1_ind] * mc_ε.p[1,ε_ind] * ( (1+r).*a_t1 + exp(κ[t+1] + z_t1 + ε) - A_t2 )^(-γ)
+    for t in reverse(1:T_ret-2)
+        At = Float32[]
+        for ε in mc_ε.state_values, (z_ind, z) in enumerate(mcs_z[t].state_values), (a_t1_ind, a_t1) in enumerate(A_vals)
+            Ec = 0.
+            for (ε_t1_ind, ε_t1) in enumerate(mc_ε.state_values), (z_t1_ind, z_t1) in enumerate(mcs_z[t].state_values)
+                A_t2 = extrapolate(interpolate(A[t+2], BSpline(Linear())), 0. )(a_t1_ind, z_t1_ind, ε_t1_ind) # CHECK THESE INDICES ARE RIGHT
+                Ec += mcs_z[t].p[z_ind, z_t1_ind] * mc_ε.p[1,ε_t1_ind] * ( (1+r).*a_t1 + exp(κ[t+1] + z_t1 + ε_t1) - A_t2 )^(-γ)
             end
+            push!(At, 1/(1+r) .* ( ( β*(1+r)*Ec )^(-1/γ) - exp(κ[t] + z + ε) + a_t1 ) )
         end
-        C[t] = ( β*(1+r) .* Ec).^(-1/γ)
-        At = 1/(1+r) .* (C[t] - repeat(PY_tilde_vals', a_gridpoints, 1) + A_grid_l) # ******how to account for all possible combos of z,ε??
-        A[t+1] = grid_shift(invert_rule(At, A_vals), A_vals, A_vals, Z_vals_old, Z_vals_new) # ********
+        return At
+        # A[t+1] = grid_shift(invert_rule(At, A_vals), A_vals, A_vals, Z_vals_old, Z_vals_new) # ********
+        # update invert_rule and grid_shift to deal with 3d matrices
     end
 
     return A
 end
 
-A = policyfn(mcs_z, mc_ε)
-A[69]
-heatmap(A[T_ret+2])
-plot()
-plot!(A_vals, A[T_ret+5][:,9])
-A_vals |> length
-A[1] |> size
+# A = policyfn(mcs_z, mc_ε)
+# A[69]
+# heatmap(A[T_ret+2])
+# plot()
+# plot!(A_vals, A[T_ret+5][:,9])
+# A_vals |> length
+# A[1] |> size
 
 function simulate_economy(A,Y_state)
     ## Initial wealth is zero => Ai[:,1]=0.
@@ -229,13 +234,12 @@ end
 
 # Main program
 Random.seed!(1234)
-(Y_l,z_l) = Y(N, T_ret, σ_ε, σ_η, σ_z0, κ)
+(Y_l, z_l, ε_l) = Y(N, T_ret, σ_ε, σ_η, σ_z0, κ)
 (Y_tilde_l, τ_s) = G(Y_l, τ_s_0 = 0.04057, verbose = true) #0.031 - Initial guess from Gouveia Strauss 1994
 Y_SS = P(Y_tilde_l)
 Y_tot = hcat(Y_l, repeat(Y_SS, 1, T-(T_ret-1)) )
 Y_state = hcat(z_l, repeat(Y_SS, 1, T-(T_ret-1)) )
 A = policyfn(mcs_z, mc_ε)
-
 
 Ai = simulate_economy(A,Y_state)
 Ai_ave = mean(Ai, dims = 1)
@@ -253,9 +257,9 @@ li.(29.,17.5)  #extrapolate with boundary rules
 
 
 # Todo
-# 1. budget constraint for working period!
+# 1. policy rule for working period with 3rd dimension
 # 2. Check expectation for working years
-# 3. check invert_rule and grid_shift
+# 3. update and check invert_rule and grid_shift
 # 4. check if borrowing constraint is working
 # 5. use indices in simulate_economy
 # 6. Non-zero borrowing limit (not idiosyncratic)
