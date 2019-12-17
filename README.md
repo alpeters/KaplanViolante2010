@@ -1,7 +1,7 @@
 # Kaplan Violante 2010
 ## Final project for ECON 516
 
-This code replicates Kaplan & Violante (2010). While some of the details in the paper are sparse, I have tried to follow the same methods as much as possible. In particular, the discretization method of the non-stationary income process is unclear. I followed the Rouwenhorst method for non-stationary processes outlined in Fella, Gallipoli, & Pan (2019). I built this on top the [QuantEcon.jl](https://github.com/QuantEcon/QuantEcon.jl) package discretization functionality and intend to contribute it when ready.
+This code replicates the heterogeneous agents life-cycle model from Kaplan & Violante (2010). While some of the details in the paper are sparse, I have tried to follow the same methods as much as possible. In particular, the discretization method of the non-stationary income process is unclear. I followed the Rouwenhorst method for non-stationary processes outlined in Fella, Gallipoli, & Pan (2019). I built this on top the [QuantEcon.jl](https://github.com/QuantEcon/QuantEcon.jl) package discretization functionality and intend to contribute it when ready.
 
 ## Results
 [Insert Figure]
@@ -12,12 +12,13 @@ The data required was obtained as follows:
 * Life-cycle earnings profile from PSID data up to 1992 (Huggett, Ventura, & Yaron 2006)
 
 ## Methods
-* Rouwenhorst non-stationary discretization
-*
+* Rouwenhorst non-stationary discretization for permanent component of income process
+* Rouwenhorst stationary discretization for transitory component of income process
+* Bi-linear B-Spline interpolation using [Interoplations.jl](https://github.com/JuliaMath/Interpolations.jl)
+* Endogenous grid method
 
 ## Derivations
-First order conditions are derived in [this document](https://github.com/alpeters/KaplanViolante2010/blob/master/docs/KV2010.pdf)
-
+First order conditions are derived in [this document](https://github.com/alpeters/KaplanViolante2010/blob/master/docs/KV2010.pdf).
 
 
 ## References
