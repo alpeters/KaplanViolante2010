@@ -64,21 +64,32 @@ $$ \Rightarrow c_t = \left(\beta \frac{\xi_{t+1}}{\xi_t} (1+r) \right)^{-1/\gamm
 
 \begin{equation*}
 \begin{split}
- V_{t}(a_{t+1}, z_t) &= \max_{c_t,a_{t+1}} u(c_{t}) + \beta \mathbb{E}_t[V_{t+1}(a_{t+2}, z_{t+1})] \\
+ V_{t}(c_t + a_{t+1}, z_t) &= \max_{c_t,a_{t+1}} u(c_{t}) + \beta \mathbb{E}_t[V_{t+1}(c_{t+1} + a_{t+2}, z_{t+1})] \\
  \text{s.t. } c_t &= (1+r) a_{t}+y_t - a_{t+1}
 \end{split}
 \end{equation*}
 
 $$ \Rightarrow c_t^{-\gamma} = \beta (1+r) \mathbb{E}_t [c_{t+1}^{-\gamma}] $$
 
-\begin{equation*}
+\begin{equation}
 \begin{split}
 \mathbb{E}_t [c_{t+1}^{-\gamma}] &=
       \mathbb{E}_t [\left( (1+r)a_{t+1} + y_{t+1} - a_{t+2} \right)^{-\gamma}] \\
       &= \mathbb{E}_t [\left((1+r)a_{t+1} + \exp(\kappa_{t+1} + z_{t+1} + \varepsilon_{t+1}) - a_{t+2} \right)^{-\gamma}] \\
       &= \sum_{z_{t+1}|z_t} \sum_{\varepsilon_t} \pi_{z,t}(z_{t+1}|z_t) \pi_\varepsilon(\varepsilon_{t+1}) \left((1+r)a_{t+1} + e^{(\kappa_{t+1} + z_{t+1} + \varepsilon_{t+1})} - a_{t+2} \right)^{-\gamma}
 \end{split}
-\end{equation*}
+\end{equation}
+
+\begin{equation}
+  \Rightarrow c_t = \left( \beta (1+r) \mathbb{E}_t [c_{t+1}^{-\gamma}]  \right) ^{-\frac{1}{\gamma}}
+\end{equation}
+
+\begin{equation}
+\begin{split}
+a_{t} &= \frac{1}{1+r} \left( c_t + a_{t+1} - y_t \right) \\
+      &= \frac{1}{1+r} \left( c_t + a_{t+1} - \exp( \kappa_t + z_{t} + \varepsilon_{t}) \right)
+\end{split}
+\end{equation}
 
 
 % \begin{equation*}
@@ -103,3 +114,6 @@ $$ \Rightarrow c_t^{-\gamma} = \beta (1+r) \mathbb{E}_t [c_{t+1}^{-\gamma}] $$
  \tilde{V}_{t+1}(a_{t+1}, z_{t+1})
 
 &= \sum_{\eta_{t+1}|z_t} \sum_{\varepsilon_t} \pi_{\eta,t}(\eta_{t+1}|z_t) \pi_\varepsilon(\varepsilon_{t+1}) \left((1+r)a_{t+1} + e^{(\kappa_{t+1} + z_t + \eta_{t+1} + \varepsilon_{t+1})} - a_{t+2} \right)^{-\gamma}
+
+
+$$c_t + a_{t+1} &= (1+r) a_{t}+y_t = (1+r) a_{t} + \exp( \kappa_t + z_{t} + \varepsilon_{t})$$
