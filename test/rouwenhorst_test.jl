@@ -63,35 +63,6 @@ heatmap(test[5].p)
 
 
 ### Markov Chain simulation for non-stationary
-@doc doc"""
-Simulate one sample path of the non-stationary vector of Markov chains `mcs`.
-The resulting vector has the state values of `mcs` as elements.
-
-### Arguments
-
-- `mcs::Vector{MarkovChain}` : Vector of MarkovChains.
-- `;init::Int` : Index of initial state
-
-### Returns
-
-- `X::Vector` : Vector containing the sample path, with length
-  length(mcs)+1 (includes initial state)
-"""
-function simulate_ns(mcs::Vector, init::Int)
-    ind_0 = init
-    ind = zeros(Int, length(mcs))
-    X = zeros(Real, length(mcs))
-
-    for t in eachindex(mcs)
-        X[t] = simulate(mcs[t], 2, init = ind_0)[2]
-        ind[t] = findmin( abs.(mcs[t].state_values .- X[t]) )[2]
-        if t < length(mcs)
-            ind_0 = ind[t] #findmin( abs.(mcs[t].state_values .- X[t]) )[2]
-        end
-    end
-    ind = [init; ind]
-    X = [mcs[1].state_values[init]; X]
-end
 
 # Check that my simulation function gives same results as QuantEcon's for
 # stationary process
@@ -169,9 +140,9 @@ Y = simulate_PTincome(N, T, σ_u, σ_ε, ρ, σ_η0)
 plot(1:T, var(Y, dims = 2), label="DGP", legend=:bottomright)
 
 # Markov chain for persistent component
-mcs_FGP = rouwenhorst_ns(n, T, ρ, σ_ε, σ_η0)
+mcs_pers = rouwenhorst_ns(n, T, ρ, σ_ε, σ_η0)
 η = zeros(length(mcs_FGP)+1,N)
-[η[:,i] = simulate_ns(mcs_FGP, round(Int,n/2)) for i in 1:N]
+[η[:,i] = simulate_ns(mcs_pers, round(Int,n/2)) for i in 1:N]
 # plot!(0:T, var(η, dims = 2), label="eta_FGP")
 
 # Markov simulation with actual transitory component
@@ -199,8 +170,9 @@ sim_error = (mean(Y_mm, dims=2)-mean(Y,dims=2))./mean(Y,dims=2)*100
 sim_error[end]
 # These compare quite well with FPG2019 Table 1
 
+### Need to include initial variance in simulate_ns argument if non-zero!
 
-plot()
+
 ### Then we calculate expectations!!!
 
 # PROBLEMS
@@ -261,4 +233,34 @@ stop
 #     plot!(Y[:,i], legend=:none) |>display
 #     plot!(Y_m[:,i], line=:dash) |>display
 #     # plot!(η[:,i]) |>display
+# end
+
+# @doc doc"""
+# Simulate one sample path of the non-stationary vector of Markov chains `mcs`.
+# The resulting vector has the state values of `mcs` as elements.
+#
+# ### Arguments
+#
+# - `mcs::Vector{MarkovChain}` : Vector of MarkovChains.
+# - `;init::Int` : Index of initial state
+#
+# ### Returns
+#
+# - `X::Vector` : Vector containing the sample path, with length
+#   length(mcs)+1 (includes initial state)
+# """
+# function simulate_ns(mcs::Vector, init::Int)
+#     ind_0 = init
+#     ind = zeros(Int, length(mcs))
+#     X = zeros(Real, length(mcs))
+#
+#     for t in eachindex(mcs)
+#         X[t] = simulate(mcs[t], 2, init = ind_0)[2]
+#         ind[t] = findmin( abs.(mcs[t].state_values .- X[t]) )[2]
+#         if t < length(mcs)
+#             ind_0 = ind[t] #findmin( abs.(mcs[t].state_values .- X[t]) )[2]
+#         end
+#     end
+#     ind = [init; ind]
+#     X = [mcs[1].state_values[init]; X]
 # end
