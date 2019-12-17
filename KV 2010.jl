@@ -1,20 +1,16 @@
-
-# Reproduce Kaplan Violante 2010
+# Replicate Kaplan Violante 2010
 # Allen Peters
 # November 7, 2019
 
-# t ∈ [1,T]
-# vectors N x T
-
-using Plots, LinearAlgebra, Statistics, Random, Roots, QuantEcon, Interpolations
-using BenchmarkTools
+using Plots, LinearAlgebra, Statistics, Random, Roots, Interpolations
+using QuantEcon # requires my version with non-stationary markov chain functions
 
 # Parameters
 ## Demographics
 N = 50000
 T_ret = 35
 T = 70
-t = 1:T
+t = 1:T-1   # Agent is dead in period T, retired in T_ret
 age = t .+ 25
 
 ## Uncondtional probability of surviving to age t
@@ -24,11 +20,9 @@ S_data = [85.89; 80.08; 72.29; 61.52; 48.13; 32.33; 0]./100
 S_interp = LinearInterpolation(age_data, S_data)
 ξ_ret = map(S_interp,collect(60:95))
 ξ = [ones(Float64,T_ret-1); ξ_ret]
-# Visual check
-# scatter(t,ξ)
 
 ## Preferences
-u(c, γ = 2.) = 1/(1-γ)*c^(1-γ)
+γ = 2.
 
 ## Discount factor and interest rate
 r = 0.03
@@ -47,81 +41,33 @@ WI_ratio = 2.5  # aggregate wealth-income ratio
 age_y = [20; 25; 30; 35; 40; 45; 50; 55; 57.5]
 y_data = [55.12; 76.59; 91.38; 101.63; 106.67; 107.64; 106.67; 103.58; 100]
 y_interp = LinearInterpolation(age_y, y_data, extrapolation_bc = Line())
-# plot([0:39],κ./maximum(κ), ylims=(0,1))
 # Assume KV's description is about levels. Then my data peaks slightly later and doesn't decline as much as KV describes.
-κ = log.(map(y_interp,collect(20:59)))
+κ = log.(map(y_interp,collect(25:59)))
 
-# Directly from KV2010
-σ_η = 0.01
-σ_z0 = 0.15
-σ_ε = 0.05
-
-function net_labor_income(N, T_ret, σ_ε, σ_η, σ_z0, κ)
+# Net labour income
+function Y(N, T_ret, σ_ε, σ_η, σ_z0, κ)
+# Takes standard deviations as arguments (not varicances)!
     Y = zeros(Float64, N, T_ret-1)
-    z_t1 = sqrt(σ_z0) .* randn(N)
+    z = similar(Y)
+    z[:,1] = σ_z0 .* randn(N) + σ_η .* randn(N)
 
     for t in 1:(T_ret-1)
-        z_t = z_t1 + sqrt(σ_η) .* randn(N)
-        Y[:,t] = exp.( κ[t] .+ z_t + sqrt(σ_ε) .* randn(N) )
-        z_t1 = copy(z_t)
+        Y[:,t] = exp.( κ[t] .+ z[:,t] + σ_ε .* randn(N) )
+        t < (T_ret-1) ? z[:,t+1] = z[:,t] + σ_η .* randn(N) : nothing
     end
-    return Y
+    return (Y,z)
 end
-
-## Test
-# function linreg(x,y)
-#     x = [x ones(length(y))]
-#     x'*x \ x'*y
-# end
-#
-# Random.seed!(1234)
-# plot(labor_income(1,T_ret, 0., 0., 0., κ; y_0 = 0.0)')
-# any(labor_income(1,T_ret, 0., 0., 0., κ; y_0 = 0.0) .== 1.) != false
-#
-# Random.seed!(1234)
-# testy = labor_income(10, T_ret, 0., σ_η, 0., κ; y_0 = 0.0)'
-# plot(testy)
-# i = 7
-# linreg(testy[i,1:end-1],testy[i,2:end])[2]
-#
-# Random.seed!(1234)
-# testy = labor_income(10,T_ret, σ_ε, 0., 0., κ; y_0 = 0.0)'
-# plot!(testy)
-# i = 6
-# linreg(testy[i,1:end-1],testy[i,2:end])[2]
-
-## Initial wealth
-A_0 = zeros(Float64,N)
-# Optional: Do empirical one too
-# "Precisely, we target the empirical distribution of financial wealth-earnings ratios in the population of house
-# holds aged 20-30 in the SCF. We assume that the initial draw of earnings is independent of the initial draw of this
-# ratio, since in the data the empirical correlation is 0.02."
-
-## Borrowing limit
-# how to calc? A_min =   # NBC
-A_min = 0 # ZBC
 
 # Gross earnings Y_tilde
 τ_b = 0.258
 τ_ρ = 0.768
 τ(Y_tilde,τ_s) = τ_b*(Y_tilde-(Y_tilde^(-τ_ρ) + τ_s)^(-1/τ_ρ))
-Y_tilde_fn(Y, τ_s) = find_zero(Y_tilde -> Y_tilde - τ(Y_tilde,τ_s) - Y, Y) # Select an algorithm, with a derivative
+Y_tilde_fn(Y, τ_s) = find_zero(Y_tilde -> Y_tilde - τ(Y_tilde,τ_s) - Y, Y)
+# Select an algorithm, with a derivative?
 # Linear interpolation may be much faster
-## Test
-# Random.seed!(1234)
-# N = 1000
-# Y_l = net_labor_income(N, T_ret, σ_ε, σ_η, σ_z0, κ)
-# i = rand(1:N)
-# plot(Y_l[i,:])
-# τ_s = 1.45
-# Y_tilde = Y_tilde_fn.(Y_l,τ_s)
-# plot!(Y_tilde[i,:])
-# scatter(Y_tilde[i,:], 1. .- Y_l[i,:] ./ Y_tilde[i,:], ylabel="tax rate", xlabel="gross income", legend=false)
-# scatter(Y_tilde, 1. .- Y_l ./ Y_tilde, ylabel="tax rate", xlabel="gross income", legend=false)
 
-
-# Iterate to calibrate τ_s
-function gross_labor_income(Y_l; τ_s_0 = 0.25, Kp = .8, Kd = .1, tol = 1E-3, max_iter = 1000, nonconvergence_message = true, verbose = false)
+# Iterate to calibrate τ_s (Returns gross labour income)
+function G(Y_l; τ_s_0 = 0.25, Kp = .8, Kd = .1, tol = 1E-3, max_iter = 1000, nonconvergence_message = true, verbose = false)
     #iterate to
     Y_tilde = similar(Y_l)
     τ_s = τ_s_0
@@ -138,118 +84,178 @@ function gross_labor_income(Y_l; τ_s_0 = 0.25, Kp = .8, Kd = .1, tol = 1E-3, ma
     end
     iter <= max_iter ? (Y_tilde = Y_tilde, τ_s = τ_s, iters = iter - 1, err = err) : ( !nonconvergence_message ? (Y_tilde = Y_tilde, iters = iter - 1) : println("Did not converge after $(iter-1) iterations") )
 end
-## Test
-# Random.seed!(1234)
-# N = 100
-# Y_l = net_labor_income(N, T_ret, σ_ε, σ_η, σ_z0, κ)
-# sol = gross_labor_income(Y_l, τ_s_0 = 0.1, Kp = 10, Kd = 1., tol = 1E-3, max_iter = 100, nonconvergence_message = true)
-# sol.err
-# sol.iters
-# sol.τ_s
 
 
-# Social security benefits
-function gross_SS_income(Y_tilde)
-    Y_tilde_SS = mean(Y_tilde, dims = 2)
-    y_ave = mean(Y_tilde_SS)
-    SS_schedule(y) = y < 0.18*y_ave ? 0.9*y : (y > 1.1*y_ave ? 0.9*0.18*y_ave + 0.32*(1.1-0.18)*y_ave + 0.15*(y-1.1*y_ave) : 0.9*0.18*y_ave + 0.32*(y-0.18*y_ave) )
-    Y_SS = 0.45*y_ave/SS_schedule(y_ave).*replace(SS_schedule, Y_tilde_SS)
+# Social security benefits (After tax retirement income)
+function P(Y_tilde_l)
+    Y_tilde_l_iave = mean(Y_tilde_l, dims = 2) # Denoted \tilde{Y}_i^SS in the paper just to be confusing. This each individuals average lifetime earnings
+    y_tilde_l_ave = mean(Y_tilde_l_iave) # Average lifetime earnings across individuals
+    SS_schedule(y) = y < 0.18*y_tilde_l_ave ? 0.9*y : (y > 1.1*y_tilde_l_ave ? 0.9*0.18*y_tilde_l_ave + 0.32*(1.1-0.18)*y_tilde_l_ave + 0.15*(y-1.1*y_tilde_l_ave) : 0.9*0.18*y_tilde_l_ave + 0.32*(y-0.18*y_tilde_l_ave) )
+    Y_tilde_SS = 0.45*y_tilde_l_ave/SS_schedule(y_tilde_l_ave).*replace(SS_schedule, Y_tilde_l_iave)
+    Y_SS = Y_tilde_SS - τ.(0.85.*Y_tilde_SS, τ_s)
 end
 
-# ## Test, using Y_l instead of Y_tilde for simplicity
-# Random.seed!(1234)
-# N = 10000
-# Y_l = net_labor_income(N, T_ret, σ_ε, σ_η, σ_z0, κ)
-#
-# # Bendpoints
-# Y_ave = mean(Y_l,dims=2) #lifetime average income
-# y_ave = mean(Y_ave)
-# bp1 = 0.18*y_ave
-# bp2 = 1.1*y_ave
-# Y_l_SS = gross_SS_income(Y_l)
-# scatter(Y_ave,Y_l_SS)
-# vline!([bp1 bp2])
-# xlims!(0.,1.)
-# ylims!(0.,0.4)
-#
-# # Test average income gets 45% of earnings
-# y_ave = mean(sum(Y_l,dims=2)) #average lifetime net labour earnings
-# ind_mean = findmin(abs.( sum(Y_l,dims=2) .- y_ave ))
-# mean_ind = ind_mean[2][1]
-# sum(Y_l[mean_ind,:])
-# mean(Y_l[mean_ind,:])
-# Y_l_SS[mean_ind] - 0.45*mean(Y_l[mean_ind,:]) < 1E-4
-# plot(Y_l[mean_ind,:])
-# Y = hcat(Y_l, repeat(Y_l_SS, 1, T-(T_ret-1)))
-# plot(Y[mean_ind,:], ylims=(0,:))
-
-# Test income generation
-# Random.seed!(1234)
-# Y_l = net_labor_income(N, T_ret, σ_ε, σ_η, σ_z0, κ)
-# (Y_tilde, τ_s) = gross_labor_income(Y_l, τ_s_0 = 1.45)
-# Y_tilde_SS = gross_SS_income(Y_tilde)
-# Y_SS = Y_tilde_SS - τ.(0.85.*Y_tilde_SS, τ_s)
-# Y = hcat(Y_l, repeat(Y_SS, 1, T-(T_ret-1)) )
-# for num = 1:10
-#     num == 1 ? plot() : nothing
-#     i = rand(1:N)
-#     display(plot!(Y[i,:], ylims=(0,8), label=i, title="Net income"))
-# end
-
-
-# Policy function via endogenous grid method, as per footnote 23
-a_min = 0.
-a_gridpoints = 100
-a_max = 10.
-A_vals = exp10.( range(log10(a_min+1), stop = log10(a_max+1), length = a_gridpoints) ) .- 1
-
-y_ave_gridpoints = 19
+# Directly from KV2010
+σ_η = sqrt(0.01)
+σ_z0 = sqrt(0.15)
+σ_ε = sqrt(0.05)
 
 # Discretize permanent component of income
 # 39 equally spaced points on an age-varying grid chosen to match the age-specific unconditional variances
-
-
-
+z_gridpoints = 39
+mcs_z = rouwenhorst_ns(z_gridpoints, T_ret, 1., σ_η, σ_z0)
 # Discretize transitory component of income
- #transitory component is approximated with 19 equally spaced points
+# transitory component is approximated with 19 equally spaced points
+mc_ε = rouwenhorst(19, 0., σ_ε)
 
-
-
-# # Test
-# scatter(A_vals, ones(length(A_vals)))
-# histogram(A_vals,bins = 30)
-
-for t in reverse(t)
-    if t < T_ret
-
-    elseif t < T && t >= T_ret
-
-    elseif t == T
-
+function invert_rule(A,A_vals)
+    A_interp = similar(A)
+    for col in eachindex(A[1,:])
+        # li = LinearInterpolation(A[:,col], A_vals, extrapolation_bc = (0.,Line()))
+        # use extrapolate and do different for each side fixed value/line
+        A_interp[:,col] = extrapolate(interpolate(A[:,col], BSpline(Linear())), 0.)(A_vals)
     end
+    return A_interp
 end
 
+function grid_shift(A, A_vals_old, A_vals_new, Y_vals_old, Y_vals_new)
+    A_grid = zeros( eltype(A[1]), length(A_vals_new), length(Y_vals_new) )
 
-# linear interpolation of decision rule
+    # Find relative coordinates of new basis
+    li = LinearInterpolation(Y_vals_old, 1:length(Y_vals_old), extrapolation_bc=Line())
+    Y_ind = li(Y_vals_new)
+    li = LinearInterpolation(A_vals_old, 1:length(A_vals_old), extrapolation_bc=Line())
+    A_ind = li(A_vals_new)
 
+    # Bi-linear interpolation on new coordinates
+    li = extrapolate(interpolate(A, BSpline(Linear()) ), Line())  #extrapolate with boundary rules
+    [ A_grid[i,j] = li(A_ind, Y_ind) for  (i, A_ind) in enumerate(A_ind), (j, Y_ind) in enumerate(Y_ind)]
+    return A_grid
+end
 
+function policyfn(mcs_z, mc_ε)
+    # Policy function via endogenous grid method, as per footnote 23
+    # 100 exponentially spaced grid points for assets.
+    ## Borrowing limit
+    # how to calc? A_min =   # NBC
+    a_min = 0. # ZBC
+    a_gridpoints = 100
+    a_max = 10.
+    A_vals = exp10.( range(log10(a_min+1), stop = log10(a_max+1), length = a_gridpoints) ) .- 1
 
+    # The grid for lifetime average earnings has 19 points.
+    # I will build a grid on P(y_tilde) rather than y_tilde because
+    # don't have to worry about matching mean for accuracy
+    PY_tilde_gridpoints = 19
+    # Based on simulating the income process:
+    # histogram(Y_SS, normalize=:true, bins = 100)
+    # minimum(Y_SS)
+    # maximum(Y_SS)
+    PY_tilde_vals = range(8., stop = 170., length = PY_tilde_gridpoints)
+    # scatter!(PY_tilde_vals,zeros(length(PY_tilde_vals)))
+    # histogram!(Y_SS, normalize=:true, bins = PY_tilde_vals, alpha = 0.5)
 
+    # We have 3 state variables: age (t), wealth (a),
+    # and either permanent component of income (z)
+    # or average lifetime earnings y_tilde
+    # Matrices of form a x z/y_tilde
+    A = vcat(fill(zeros(Float64, a_gridpoints, z_gridpoints), T_ret-1),
+     fill(zeros(Float64, a_gridpoints, PY_tilde_gridpoints), (T)-(T_ret-1)) )
 
+    # Last period
+    A[T] = zeros(Float64, a_gridpoints, PY_tilde_gridpoints)
+    # no need to shift grid because all zeros
 
+    # Retirement
+    A_grid_ret = repeat(A_vals, 1, PY_tilde_gridpoints)
+    PY_tilde_grid = repeat(PY_tilde_vals', a_gridpoints, 1)
 
+    for t in reverse(T-2:T_ret)
+        C_t1 = (1+r).*A_grid_ret + PY_tilde_grid - A[t+2]
+        C_t = ( β*ξ[t+1]/ξ[t]*(1+r) )^(-1/γ) .* C_t1
+        At = 1/(1+r) .* (C_t - PY_tilde_grid + A_grid_ret)
+        A[t+1] = invert_rule(At, A_vals)
+    end
 
+    # Year before retirement
+    A_grid_l = repeat(A_vals, 1, z_gridpoints)
 
+    for t = T_ret-1
+        C_t1 = (1+r).*A_grid_ret + PY_tilde_grid - A[t+2]
+        C_t = ( β*ξ[t+1]/ξ[t]*(1+r) )^(-1/γ) .* C_t1
+        # replace with working BC: At = 1/(1+r) .* (C_t - PY_tilde_grid + A_grid_ret)
+        A[t+1] = invert_rule(At, A_vals)
+    end
+
+    # Working years
+    for t in reverse(1:T_ret-2) #reverse(t)
+        Ec = zeros(Float64,a_gridpoints,z_gridpoints)
+        for (a_t1_ind, a_t1) in enumerate(A_vals), (z_ind, z) in enumerate(mcs_z[t].state_values)
+            A_t2 = extrapolate(interpolate(A[t+2], BSpline(Linear())), 0. )(a,z)
+            for (ε_ind, ε) in enumerate(mc_ε.state_values), (z_t1_ind, z_t1) in enumerate(mcs_z[t].state_values)
+                Ec[a_ind, z_ind] += mcs_z[t].p[z_ind, z_t1_ind] * mc_ε.p[1,ε_ind] * ( (1+r).*a_t1 + exp(κ[t+1] + z_t1 + ε) - A_t2 )^(-γ)
+            end
+        end
+        C[t] = ( β*(1+r) .* Ec).^(-1/γ)
+        At = 1/(1+r) .* (C[t] - repeat(PY_tilde_vals', a_gridpoints, 1) + A_grid_l) # ******how to account for all possible combos of z,ε??
+        A[t+1] = grid_shift(invert_rule(At, A_vals), A_vals, A_vals, Z_vals_old, Z_vals_new) # ********
+    end
+
+    return A
+end
+
+A = policyfn(mcs_z, mc_ε)
+A[69]
+heatmap(A[T_ret+2])
+plot()
+plot!(A_vals, A[T_ret+5][:,9])
+A_vals |> length
+A[1] |> size
+
+function simulate_economy(A,Y_state)
+    ## Initial wealth is zero => Ai[:,1]=0.
+    Ai = zeros(Float64, N, T)
+    # Optional: Do empirical one too
+    # "Precisely, we target the empirical distribution of financial wealth-earnings ratios in the population of house
+    # holds aged 20-30 in the SCF. We assume that the initial draw of earnings is independent of the initial draw of this
+    # ratio, since in the data the empirical correlation is 0.02."
+    for t in T_ret+1:T-1
+        li = extrapolate(interpolate(A[t+1], BSpline(Linear()) ), Line())
+        Ai[:,t+1] = li.(Ai[:,t],Y_state[:,t])  #extrapolate with boundary rules
+        # ************These need to be indices, not values!
+    end
+    return Ai
+end
 
 # Main program
 Random.seed!(1234)
-Y_l = net_labor_income(N, T_ret, σ_ε, σ_η, σ_z0, κ)
-(Y_tilde, τ_s) = gross_labor_income(Y_l, τ_s_0 = 0.031, verbose = true) #0.031 - Initial guess from Gouveia Strauss 1994
-Y_tilde_SS = gross_SS_income(Y_tilde)
-Y_SS = Y_tilde_SS - τ.(0.85.*Y_tilde_SS, τ_s)
-Y = hcat(Y_l, repeat(Y_SS, 1, T-(T_ret-1)) )
+(Y_l,z_l) = Y(N, T_ret, σ_ε, σ_η, σ_z0, κ)
+(Y_tilde_l, τ_s) = G(Y_l, τ_s_0 = 0.04057, verbose = true) #0.031 - Initial guess from Gouveia Strauss 1994
+Y_SS = P(Y_tilde_l)
+Y_tot = hcat(Y_l, repeat(Y_SS, 1, T-(T_ret-1)) )
+Y_state = hcat(z_l, repeat(Y_SS, 1, T-(T_ret-1)) )
+A = policyfn(mcs_z, mc_ε)
 
 
-# calculate individual debt limits ??
+Ai = simulate_economy(A,Y_state)
+Ai_ave = mean(Ai, dims = 1)
 
-# solve..
+plot(age, Ai_ave[1:end-1], xlabel="Age", ylabel="\$ (00,000)",
+ title="Life-cycle Means", label = "Zero BC", linestyle=:dash)
+
+Ai_var = var(Ai, dims = 1)
+plot(age, Ai_var[1:end-1], xlabel="Age", ylabel="Variance of logs",
+ title="Life-cycle Inequality", label = "Zero BC", linestyle=:dash)
+
+heatmap(A[69])
+li = extrapolate(interpolate(A[69], BSpline(Linear()) ), Line())
+li.(29.,17.5)  #extrapolate with boundary rules
+
+
+# Todo
+# 1. bi-linear interpolation of decision rule
+# 2. Calculate expectations for working years - how to know current z for expectation?
+# 5. check if borrowing constraint is working
+# 3. Non-zero borrowing limit (not idiosyncratic)
+# 4. return z from income dgp
+# 6. Survival probability in KV? test both ways
