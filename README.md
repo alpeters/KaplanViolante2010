@@ -16,8 +16,7 @@ The data required was obtained as follows:
 *
 
 ## Derivations
-# First order conditions
-<a href="https://www.codecogs.com/eqnedit.php?latex=$$&space;Y_{i&space;t}&space;=&space;\exp(&space;\kappa_t&space;&plus;&space;z_{i&space;t}&space;&plus;&space;\varepsilon_{i&space;t})$$&space;$$&space;z_{i&space;t}&space;=&space;z_{i,t-1}&space;&plus;&space;\eta_{i&space;t}&space;$$" target="_blank"><img src="https://latex.codecogs.com/gif.latex?$$&space;Y_{i&space;t}&space;=&space;\exp(&space;\kappa_t&space;&plus;&space;z_{i&space;t}&space;&plus;&space;\varepsilon_{i&space;t})$$&space;$$&space;z_{i&space;t}&space;=&space;z_{i,t-1}&space;&plus;&space;\eta_{i&space;t}&space;$$" title="$$ Y_{i t} = \exp( \kappa_t + z_{i t} + \varepsilon_{i t})$$ $$ z_{i t} = z_{i,t-1} + \eta_{i t} $$" /></a>
+First order conditions are derived in [this document](https://github.com/alpeters/KaplanViolante2010/blob/master/docs/KV2010.pdf)
 
 
 
