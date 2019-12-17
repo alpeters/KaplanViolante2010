@@ -276,10 +276,11 @@ function policyfn(mcs_z, mc_ε)
     # Working years
     for t in reverse(1:T_ret-2)
         At = Float32[]
+        li = extrapolate(interpolate(A[t+2], BSpline(Linear())), 0. )
         for ε in mc_ε.state_values, (z_ind, z) in enumerate(mcs_z[t].state_values), (a_t1_ind, a_t1) in enumerate(A_vals)
             Ec = 0.
             for (ε_t1_ind, ε_t1) in enumerate(mc_ε.state_values), (z_t1_ind, z_t1) in enumerate(mcs_z[t].state_values)
-                A_t2 = extrapolate(interpolate(A[t+2], BSpline(Linear())), 0. )(a_t1_ind, z_t1_ind, ε_t1_ind) # CHECK THESE INDICES ARE RIGHT
+                A_t2 = li(a_t1_ind, z_t1_ind, ε_t1_ind) # CHECK THESE INDICES ARE RIGHT
                 Ec += mcs_z[t].p[z_ind, z_t1_ind] * mc_ε.p[1,ε_t1_ind] * ( (1+r).*a_t1 + exp(κ[t+1] + z_t1 + ε_t1) - A_t2 )^(-γ)
             end
             push!(At, 1/(1+r) .* ( ( β*(1+r)*Ec )^(-1/γ) - exp(κ[t] + z + ε) + a_t1 ) )
