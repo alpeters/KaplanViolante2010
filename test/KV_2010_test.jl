@@ -4,7 +4,7 @@
 # Visual check
 scatter(t,ξ)
 
-## Check κ
+## Check κf
 plot([0:39],κ./maximum(κ), ylims=(0,1))
 
 ## Net labour income function Y()
@@ -161,3 +161,218 @@ for t in reverse(T_ret:T-1) #reverse(t)
         # no need to shift because all zeros
     end
 end
+
+# Check 3d interpolation
+A = zeros(3,4,2)
+A[:,:,1] = [1 2 3 4; 5 6 7 8; 9 10 11 12]
+A[:,:,2] = 2*[1 2 3 4; 5 6 7 8; 9 10 11 12]
+li = interpolate(A, BSpline(Linear()))
+li(1,2.5,1)
+mean(A,dims=3)
+
+A = [1 2 3 4; 5 6 7 8]
+fill(A, 1,1,2)
+
+A
+function testfn()
+    A = Float64[]
+    for a in 1:3, b in 2:5, c in 1:2
+        push!(A, a + b + c)
+    end
+    return A
+end
+
+testfn()
+
+A = [a + b + c for a in 1:3, b in 2:5, c in 1:2 ]
+A = [println(a) for a in 1:3, b in 2:5, c in 1:2 ]
+A = [(a,b,c) for a in 1:3, b in 4:5, c in 6:7]
+
+# Ec = zeros(Float64,a_gridpoints,z_gridpoints)   # Ec =  E_t[c_{ŧ+1}^{-γ}]
+# for (a_t1_ind, a_t1) in enumerate(A_vals), (z_ind, z) in enumerate(mcs_z[t].state_values), ε in enumerate(mc_ε.state_values)
+# C_t = ( β*(1+r) .* fill(Ec,1,1,ε_gridpoints).^(-1/γ)
+# repeat(mcs_z[1].state_values, 1, ε_gridpoints)
+# At = 1/(1+r) .* (C[t] - exp.(κ[t] + z + ε) + A_grid_l) # ******how to account for all possible combos of z,ε??
+
+a_min = 0. # ZBC
+a_gridpoints = 10
+a_max = 10.
+A_vals = exp10.( range(log10(a_min+1), stop = log10(a_max+1), length = a_gridpoints) ) .- 1
+
+
+
+for t in reverse(1:T_ret-2) #reverse(t)
+    At = zeros(a_gridpoints,z_gridpoints,ε_gridpoints)
+    for a_t1 in A_vals, (z_ind, z) in enumerate(mcs_z[t].state_values), ε in mc_ε.state_values
+        Ec = 0.
+        for (ε_t1_ind, ε_t1) in enumerate(mc_ε.state_values), (z_t1_ind, z_t1) in enumerate(mcs_z[t].state_values)
+            A_t2 = extrapolate(interpolate(A[t+2], BSpline(Linear())), 0. )(a_t1, z_t1, ε_t1) # NEED INDICES, NOT VALUES
+            Ec += mcs_z[t].p[z_ind, z_t1_ind] * mc_ε.p[1,ε_t1_ind] * ( (1+r).*a_t1 + exp(κ[t+1] + z_t1 + ε_t1) - A_t2 )^(-γ)
+        end
+        At = 1/(1+r) .* ( ( β*(1+r)*Ec )^(-1/γ) - exp(κ[t] + z + ε) + a_t1 )
+    end
+    A[t+1] = grid_shift(invert_rule(At, A_vals), A_vals, A_vals, Z_vals_old, Z_vals_new) # ********
+end
+
+using ProgressMeter
+function testfn()
+    for t in 1 #reverse(t)
+        i=0
+        At = zeros(a_gridpoints,z_gridpoints,ε_gridpoints)
+        li = extrapolate(interpolate(A[t+2], BSpline(Linear())), 0. )
+        for (ε_ind, ε) in enumerate(mc_ε.state_values), (z_ind, z) in enumerate(mcs_z[t].state_values), (a_t1_ind, a_t1) in enumerate(A_vals)
+            Ec = 0.
+            for (ε_t1_ind, ε_t1) in enumerate(mc_ε.state_values), (z_t1_ind, z_t1) in enumerate(mcs_z[t].state_values)
+                A_t2 = li(a_t1_ind, z_t1_ind, ε_t1_ind) # CHECK THESE INDICES ARE RIGHT
+                Ec += mcs_z[t].p[z_ind, z_t1_ind] * mc_ε.p[1,ε_t1_ind] * ( (1+r).*a_t1 + exp(κ[t+1] + z_t1 + ε_t1) - A_t2 )^(-γ)
+            end
+            At[a_t1_ind,z_ind,ε_ind] = 1/(1+r) .* ( ( β*(1+r)*Ec )^(-1/γ) - exp(κ[t] + z + ε) + a_t1 )
+            @show i+= 1
+        end
+        return At
+
+        # At = Float32[]  #zeros(a_gridpoints,z_gridpoints,ε_gridpoints)
+        # i = 0
+        # li = extrapolate(interpolate(A[t+2], BSpline(Linear())), 0. )
+        # for ε in mc_ε.state_values, (z_ind, z) in enumerate(mcs_z[t].state_values), (a_t1_ind, a_t1) in enumerate(A_vals)
+        #     @show i += 1
+        #     Ec = 0.
+        #     for (ε_t1_ind, ε_t1) in enumerate(mc_ε.state_values), (z_t1_ind, z_t1) in enumerate(mcs_z[t].state_values)
+        #         A_t2 = li(a_t1_ind, z_t1_ind, ε_t1_ind) # CHECK THESE INDICES ARE RIGHT
+        #         Ec += mcs_z[t].p[z_ind, z_t1_ind] * mc_ε.p[1,ε_t1_ind] * ( (1+r).*a_t1 + exp(κ[t+1] + z_t1 + ε_t1) - A_t2 )^(-γ)
+        #     end
+        #     push!(At, 1/(1+r) .* ( ( β*(1+r)*Ec )^(-1/γ) - exp(κ[t] + z + ε) + a_t1 ) )
+        # end
+        # return At
+        # # A[t+1] = grid_shift(invert_rule(At, A_vals), A_vals, A_vals, Z_vals_old, Z_vals_new) # ********
+    end
+end
+
+At = testfn()
+A = reshape(At,a_gridpoints,z_gridpoints,ε_gridpoints)
+heatmap(A)
+
+function myfunc()
+    @showprogress for i in 1:1E9, b in 1:15
+        i += i
+    end
+end
+
+
+myfunc()
+
+
+
+function invert_rule(A,A_vals)
+    A_interp = similar(A)
+    for col in eachindex(A[1,:])
+        # li = LinearInterpolation(A[:,col], A_vals, extrapolation_bc = (0.,Line()))
+        # use extrapolate and do different for each side fixed value/line
+        A_interp[:,col] = extrapolate(interpolate(A[:,col], BSpline(Linear())), 0.)(A_vals)
+    end
+    return A_interp
+end
+
+
+A = zeros(11,2)
+A_vals = 0:0.1:1
+A[:,1] = [(x-5)^3 + 100 for x in A_vals]
+A[:,1] = [x^2 for x in A_vals]
+
+plot!(1:25,1:25)
+plot()
+scatter!(A_vals,A[:,1])
+A_inv = invert_rule(A, A[:,1])
+scatter!(A[:,1],A_inv[:,1])
+
+plot(x -> (x-5)^3 + 100, 0, 10, ylims=(0,200))
+
+function interpolate_cols(X, Y, X_grid::Array; extrapolation_bc = Throw())
+    #linear interpolation of a column of Y on that column of X, evaluated at point x
+    Y_interp = similar(X_grid)
+    for col in eachindex(X_grid[1,:])
+        li = LinearInterpolation(X[:,col], Y[:,col],extrapolation_bc=extrapolation_bc)
+        Y_interp[:,col] = li.(X_grid[:,col])
+    end
+    return Y_interp
+end
+
+
+
+A_prime_grid = repeat(A_vals, 1, 2)
+A_prime = interpolate_cols(A,A_prime_grid,A_prime_grid, extrapolation_bc = Flat())
+
+
+A_vals = 0:0.1:1
+A = [x^2 for x in A_vals]
+scatter(A_vals,A)
+li = LinearInterpolation(A,A_vals, extrapolation_bc=Flat())
+A_inv = li.(A_vals)
+scatter!(A_vals,A_inv)
+
+# Check invert_rule
+using Interpolations, Plots
+A_vals = 0:0.01:1
+Y_vals = 0.1:0.1:0.3
+A = [y + x^2 for x in A_vals, y in Y_vals]
+plot([0; 1],[0; 1], linestyle=:dash, legend=:bottomright)
+plot!(A_vals,A[:,1])
+# plot!(A_vals,A[:,2])
+# plot!(A_vals,A[:,3])
+A_inv = invert_rule(A, A_vals, extrapolation_bc = Flat())
+plot!(A_vals,A_inv[:,1])
+# plot!(A_vals,A_inv[:,2])
+# plot!(A_vals,A_inv[:,3])
+# ylims!(0,1)
+
+function invert_rule(A, A_vals; extrapolation_bc = Throw())
+    #linear interpolation of a column of Y on that column of X, evaluated at point x
+    A_vals_interp = similar(A)
+    for col in eachindex(A[1,:])
+        li = LinearInterpolation(A[:,col], A_vals,extrapolation_bc=extrapolation_bc)
+        A_vals_interp[:,col] = li(A_vals)
+    end
+    return A_vals_interp
+end
+
+A
+A3d = zeros(size(A)[1],size(A)[2],3)
+function myfunc(A)
+    for i in 1:size(A3d)[3]
+        A3d[:,:,i] = A
+    end
+    return A3d
+end
+A3d = myfunc(A)
+A3d[:,:,1]==A3d[:,:,3]
+
+function invert_rule_3d(A3d, A_vals; extrapolation_bc = Throw())
+    wrapper(A) = invert_rule(A,A_vals,extrapolation_bc = extrapolation_bc)
+    A3d_inv = mapslices(wrapper, A3d, dims=1)
+end
+
+A3d_inv = invert_rule_3d(A3d, A_vals, extrapolation_bc = Flat())
+plot([0; 1],[0; 1], linestyle=:dash, legend=:bottomright)
+plot!(A_vals,A3d[:,2,3])
+plot!(A_vals,A3d_inv[:,2,3])
+
+
+
+
+
+# Try to reconstruct construction
+A_inv2 = extrapolate(scale(interpolate(A, BSpline(Linear())), A), Flat())(A_vals)
+scatter!(A_vals,A_inv2)
+A_inv2 = extrapolate()
+scale(interpolate(A_vals, BSpline(Linear())), A)
+#fail
+
+# Multidimensional LinearInterpolation test (NOT INVERTED)
+A_vals = 0:0.1:1
+Y_vals = 1:3
+A = [y + x^2 for x in A_vals, y in Y_vals]
+li = LinearInterpolation((A_vals,Y_vals),A , extrapolation_bc=Flat())
+li(0,2)
+plotly()
+plot(A,st=:surface)
+plot!([2 2.5],[1 1],[li(0,2) li(0,2.5)],st=:scatter3d)
