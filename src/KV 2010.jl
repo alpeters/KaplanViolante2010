@@ -194,15 +194,21 @@ mcs_z = rouwenhorst_ns(z_gridpoints, T_ret, 1., σ_η, σ_z0)
 ε_gridpoints = 19
 mc_ε = rouwenhorst(ε_gridpoints, 0., σ_ε)
 
-function invert_rule(A,A_vals)
-    A_interp = similar(A)
+function invert_rule(A, A_vals; extrapolation_bc = Throw())
+    #linear interpolation of a column of Y on that column of X, evaluated at point x
+    A_vals_interp = similar(A)
     for col in eachindex(A[1,:])
-        # li = LinearInterpolation(A[:,col], A_vals, extrapolation_bc = (0.,Line()))
-        # use extrapolate and do different for each side fixed value/line
-        A_interp[:,col] = extrapolate(interpolate(A[:,col], BSpline(Linear())), 0.)(A_vals)
+        li = LinearInterpolation(A[:,col], A_vals,extrapolation_bc=extrapolation_bc)
+        A_vals_interp[:,col] = li(A_vals)
     end
-    return A_interp
+    return A_vals_interp
 end
+
+function invert_rule_3d(A3d, A_vals; extrapolation_bc = Throw())
+    wrapper(A) = invert_rule(A,A_vals,extrapolation_bc = extrapolation_bc)
+    A3d_inv = mapslices(wrapper, A3d, dims=1)
+end
+
 
 function grid_shift(A, A_vals_old, A_vals_new, Y_vals_old, Y_vals_new)
     A_grid = zeros( eltype(A[1]), length(A_vals_new), length(Y_vals_new) )
@@ -260,7 +266,7 @@ function policyfn(mcs_z, mc_ε)
         C_t1 = (1+r).*A_grid_ret + PY_tilde_grid - A[t+2]
         C_t = ( β*ξ[t+1]/ξ[t]*(1+r) )^(-1/γ) .* C_t1
         At = 1/(1+r) .* (C_t - PY_tilde_grid + A_grid_ret)
-        A[t+1] = invert_rule(At, A_vals)
+        A[t+1] = invert_rule(At, A_vals, extrapolation_bc = (Flat(),Throw()))
     end
 
     # Year before retirement
@@ -270,7 +276,7 @@ function policyfn(mcs_z, mc_ε)
         C_t1 = (1+r).*A_grid_ret + PY_tilde_grid - A[t+2]
         C_t = ( β*ξ[t+1]/ξ[t]*(1+r) )^(-1/γ) .* C_t1
         # replace with working BC: At = 1/(1+r) .* (C_t - PY_tilde_grid + A_grid_ret)
-        A[t+1] = invert_rule(At, A_vals)
+        A[t+1] = invert_rule(At, A_vals, extrapolation_bc = (Flat(),Throw()))
     end
 
     # Working years
@@ -286,7 +292,8 @@ function policyfn(mcs_z, mc_ε)
             At[a_t1_ind, z_ind, ε_ind] = 1/(1+r) .* ( ( β*(1+r)*Ec )^(-1/γ) - exp(κ[t] + z + ε) + a_t1 )
         end
         return At
-        # A[t+1] = grid_shift(invert_rule(At, A_vals), A_vals, A_vals, Z_vals_old, Z_vals_new) # ********
+        A[t+1] = grid_shift(invert_rule_3d(At, A_vals,
+         extrapolation_bc = (Flat(),Throw())), Z_vals_old, Z_vals_new, dims = 2)
         # update invert_rule and grid_shift to deal with 3d matrices
     end
 
@@ -344,6 +351,7 @@ li.(29.,17.5)  #extrapolate with boundary rules
 # 1. policy rule for working period with 3rd dimension
 # 2. Check expectation for working years
 # 3. update and check invert_rule and grid_shift
+        #  grid_shift at start or end? is it required??
 # 4. check if borrowing constraint is working
 # 5. use indices in simulate_economy
 # 6. Non-zero borrowing limit (not idiosyncratic)
