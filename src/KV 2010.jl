@@ -94,7 +94,7 @@ end
 N = 50000
 T_ret = 35
 T = 70
-t = 1:T   # Agent is dead in period T, retired in T_ret
+t = 1:T   # period T is last period of life, T_ret is last period of work
 age = t .+ 24
 
 ## Uncondtional probability of surviving to age t
@@ -103,7 +103,13 @@ age_data = [60:5:85; 95.]
 S_data = [85.89; 80.08; 72.29; 61.52; 48.13; 32.33; 0]./100
 S_interp = LinearInterpolation(age_data, S_data)
 ξ_ret = map(S_interp,collect(60:95))
-ξ = [ones(Float64,T_ret); ξ_ret]
+ξ_raw = [ones(Float64,T_ret); ξ_ret]
+plot(age, ξ_raw[1:end-1], label = "Data",
+ title="Unconditional Survival Probability", xlabel="Age", ylabel="Data")
+ξ = [ones(Float64,T_ret); ξ_ret .+ (1-ξ_ret[1])]
+plot!(age, ξ[1:end-1], title="Unconditional Survival Probability",
+ label="Adjusted")
+
 
 ## Preferences
 γ = 2.
@@ -267,10 +273,10 @@ function policyfn(mcs_z, mc_ε, r, β, γ, PY_tilde_vals, z_gridpoints, ε_gridp
     # and either permanent component of income (z)
     # or average lifetime earnings y_tilde
     # Matrices of form a x z/y_tilde
-    A = vcat(fill(zeros(Float64, a_gridpoints, z_gridpoints, ε_gridpoints), T_ret),
-     fill(zeros(Float64, a_gridpoints, PY_tilde_gridpoints), (T+2)-(T_ret)) )
+    A = vcat(fill(zeros(Float64, a_gridpoints, z_gridpoints, ε_gridpoints), T_ret+1),
+     fill(zeros(Float64, a_gridpoints, PY_tilde_gridpoints), (T+2)-(T_ret+1)) )
 
-    # Last period and period after last (for next A[t+2] in next step)
+    # Last period and period after last (for A[t+2] when t = T-1)
     A[T+2] = zeros(Float64, a_gridpoints, PY_tilde_gridpoints)
     A[T+1] = zeros(Float64, a_gridpoints, PY_tilde_gridpoints)
     # no need to shift grid because all zeros
@@ -279,17 +285,17 @@ function policyfn(mcs_z, mc_ε, r, β, γ, PY_tilde_vals, z_gridpoints, ε_gridp
     A_grid_ret = repeat(A_vals, 1, PY_tilde_gridpoints)
     PY_tilde_grid = repeat(PY_tilde_vals', a_gridpoints, 1)
 
-    for t in reverse(T_ret:T-1)
+    for t in reverse(T_ret+1:T-1)
         println(t)
         C_t1 = (1+r).*A_grid_ret + PY_tilde_grid - A[t+2]
         C_t = ( β*ξ[t+1]/ξ[t]*(1+r) )^(-1/γ) .* C_t1
         A_t = 1/(1+r) .* (C_t - PY_tilde_grid + A_grid_ret)
         A[t+1] = invert_rule( A_t, A_vals, extrapolation_bc = a_min )
-        # extrapolation_bc determines borrowing constraint
+        # extrapolation_bc affects borrowing constraint
     end
 
     println("Year before retirement")
-    for t = T_ret-1
+    for t = T_ret
         C_t1 = (1+r).*A_grid_ret + PY_tilde_grid - A[t+2]
         C_t = ( β*ξ[t+1]/ξ[t]*(1+r) )^(-1/γ) .* C_t1
         # interpolate for shifting onto 3d grid
@@ -304,11 +310,11 @@ function policyfn(mcs_z, mc_ε, r, β, γ, PY_tilde_vals, z_gridpoints, ε_gridp
              exp(κ[t] + z + ε)) - exp(κ[t] + z + ε) + a_t1 )
         end
         A[t+1] = invert_rule_3d(A_t, A_vals, extrapolation_bc = a_min)
-        # extrapolation_bc determines borrowing constraint
+        # extrapolation_bc affects borrowing constraint
     end
 
     println("Working years")
-    for t in reverse(T_ret-4:T_ret-2)
+    for t in reverse(1:T_ret-1)
         println(t)
         A_t2 = LinearInterpolation((A_vals, mcs_z[t+1].state_values,
          mc_ε.state_values), A[t+2])
@@ -330,7 +336,7 @@ function policyfn(mcs_z, mc_ε, r, β, γ, PY_tilde_vals, z_gridpoints, ε_gridp
              exp(κ[t] + z + ε) + a_t1 )
         end
         A[t+1] = invert_rule_3d(A_t, A_vals, extrapolation_bc = a_min)
-        # extrapolation_bc determines borrowing constraint
+        # extrapolation_bc affects borrowing constraint
     end
 
     return A
@@ -339,7 +345,7 @@ end
 function simulate_economy(A, z_l, ε_l, κ, mcs_z, mc_ε, PY_tilde_vals, a_max, a_min, a_gridpoints, r)
     A_vals = exp10.( range(log10(a_min+1), stop = log10(a_max+1),
      length = a_gridpoints) ) .- 1
-    Ai = zeros(Float64, N, T)
+    Ai = zeros(Float64, N, T+2)
     Ci = similar(Ai)
     # Optional: Do empirical one too
     # "Precisely, we target the empirical distribution of financial wealth-earnings
@@ -348,20 +354,18 @@ function simulate_economy(A, z_l, ε_l, κ, mcs_z, mc_ε, PY_tilde_vals, a_max, 
     # ratio, since in the data the empirical correlation is 0.02."
 
     ## Initial wealth is zero => Ai[:,1]=0.
-    for t in 1:T_ret-1
+    for t in 1:T_ret
         li = LinearInterpolation((A_vals, mcs_z[t].state_values,
          mc_ε.state_values), A[t+1], extrapolation_bc = Flat())
          #extrapolate with boundary rules
         Ai[:,t+1] = li.(Ai[:,t], z_l[:,t], ε_l[:,t])
         Ci[:,t] = (1+r) .* Ai[:,t] + exp.(κ[t] .+ z_l[:,t] + ε_l[:,t]) - Ai[:,t+1]
     end
-    for t in T_ret:T-1
+    for t in T_ret+1:T
         li = LinearInterpolation((A_vals, PY_tilde_vals),
          A[t+1], extrapolation_bc = Flat()) #extrapolate with boundary rules
         Ai[:,t+1] = li.(Ai[:,t], Y_SS)
-        t == T_ret ?
-         Ci[:,t] = (1+r) .* Ai[:,t] + exp.(κ[t] .+ z_l[:,t] + ε_l[:,t]) - Ai[:,t+1] :
-         Ci[:,t] = (1+r) .* Ai[:,t] + Y_SS - Ai[:,t+1]
+        Ci[:,t] = (1+r) .* Ai[:,t] + Y_SS - Ai[:,t+1]
     end
     return (Ai, Ci)
 end
@@ -397,12 +401,19 @@ Y_tot = hcat(Y_l, repeat(Y_SS, 1, T-T_ret) )
 
 ### Plotting
 # Life-cycle means
-Yi_ave = mean(Y_tot, dims = 1)'
-plot(age, Yi_ave, xlabel="Age", ylabel="\$ (,000)",
- title="Life-cycle Means", label = "Zero BC", linestyle=:dash,
+Ci_ave = mean(Ci, dims = 1)'
+plot(age, Ci_ave[1:T], label = "Consumption", linestyle=:dash,
+ xlabel="Age", ylabel="\$ (,000)", title="Life-cycle Means (ZBC)",
  grid=false, ylims=(-20,200), xlims=(25,95), xticks=25:5:95)
 
-# # plot!(age[1:T_ret], exp.(κ))
+Yi_ave = mean(Y_tot, dims = 1)'
+plot!(age, Yi_ave, linestyle=:dash, label = "Income")
+
+Ai_ave = mean(Ai, dims = 1)'
+plot!(age, Ai_ave[1:T], label = "Wealth", linestyle=:dash)
+
+plot(age[1:T_ret], exp.(κ), legend=:false, title="Average Income Profile",
+ xlabel="Age", ylabel="\$ (,000)", ylims=(0,30), grid=false)
 #
 # # "Initial should be"
 # 54/168*0.5
@@ -415,38 +426,12 @@ plot(age, Yi_ave, xlabel="Age", ylabel="\$ (,000)",
 # Yi_ave[36]
 # # All are quite close!!
 
-Ai_ave = mean(Ai, dims = 1)'
-plot!(age, Ai_ave, label = "Zero BC", linestyle=:dash)
-
-Ci_ave = mean(Ci, dims = 1)'
-plot!(age, Ci_ave, label = "Zero BC", linestyle=:dash)
-
 
 # Life-cycle Inequality
-Yi_varlog = var(log.(Y_tot), dims = 1)'
-plot(age, Yi_varlog, xlabel="Age", ylabel="Variance of logs",
- title="Life-cycle Inequality", label = "Zero BC", linestyle=:dash,
+Ci_varlog = var(log.(Ci), dims = 1)'
+plot(age, Ci_varlog[1:T], label = "Consumption", linestyle=:dash,
+ title="Life-cycle Inequality (ZBC)",
  ylims=(0.05,0.6), xlims=(25,95), yticks=0.05:0.05:0.55, grid=false)
 
-# Ai_var = var(Ai, dims = 1)
-# plot(age, Ai_var[1:end-1], xlabel="Age", ylabel="Variance of logs",
-#  title="Life-cycle Inequality", label = "Zero BC", linestyle=:dash, ticks=0.05:0.05:0.55)
-
-Ci_varlog = var(log.(Ci), dims = 1)'
-plot!(age, Ci_varlog, label = "Zero BC", linestyle=:dash)
-
-
-# Todo
-# 2. fix transition year
-# 3. check that I don't need copy anywhere
-# 4. check if borrowing constraint is working
-# 5. check consumption series offset?
-# 6. Non-zero borrowing limit (not idiosyncratic)
-# We allow for borrowing subject only to the restriction that with probability one,
-# households who live up to age T do not die in debt (i.e., the "natural debt limit").
-# The level of the natural debt limit depends on the discretization of the income
-# process, through the level of the lowest possible income realization. In the
-# benchmark economy, the natural borrowing limit decreases from approximately
-# 5.8 times average annual earnings at age 25 to 2 5 times average earnings at age 50.
-# 7. Survival probability in KV? test both ways
-# 8. Y_tilde_fn: Select an algorithm, with a derivative? Linear interpolation may be much faster
+Yi_varlog = var(log.(Y_tot), dims = 1)'
+plot!(age, Yi_varlog[1:T], label = "Income", linestyle=:dash)
