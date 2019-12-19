@@ -2,12 +2,13 @@
 ## Final project for ECON 516
 
 The code [KV 2010.jl](https://github.com/alpeters/KaplanViolante2010/blob/master/src/KV%202010.jl) replicates the heterogeneous agents life-cycle model from Kaplan & Violante (2010). While some of the details in the paper are sparse, I have tried to follow the same methods as much as possible. 
-The only significant divergence from the paper is my use of standard budget constraints, whereas the authors apply mortality risk to the value of assets during retirement within the budget. MOre details on this are provided below.
+The only significant divergence from the paper is my use of standard budget constraints, whereas the authors apply mortality risk to the value of assets during retirement within the budget. More details on this are provided below.
 Addtionally, the discretization method of the non-stationary income process is not fully described. I followed the Rouwenhorst method for non-stationary processes outlined in Fella, Gallipoli, & Pan (2019). I built this on top the [QuantEcon.jl](https://github.com/QuantEcon/QuantEcon.jl) package discretization functionality and intend to contribute it when ready. The code herein contains these functions so as to provide a standalone run-able version.
 Some of the data used for calibration is not fully described in the article. I have documented below the data I used that hopefully closely resembles that used by the authors. Finally, I to-date, I have only implemented the zero borrowing constraint (ZBC), not the natural borrowing constraint (NBC).
+Note that the code is still needs to be tidied. This is item 1 on the [todo list](https://github.com/alpeters/KaplanViolante2010/blob/master/todo.TODO).
 
 ## Results and Discussion
-The following figures correspond to Figure 1 in the paper, with the same axes for ease of comparison:
+The following figures correspond to Figure 1 in the paper, with axes scaled similarly for ease of comparison:
 
 ![](/images/zbc_lifecycle_means.png)
 
@@ -15,12 +16,15 @@ The following figures correspond to Figure 1 in the paper, with the same axes fo
 
 It is immediately apparent that the level of savings is significantly lower than that in the paper. This leads to a sharp consumption drop at the beginning of retirement. One possible source of this discrepancy may be due to a different mortality risk, as the data was not described in the paper. It is also possible that there is a bug in my code that I haven't yet located. The alternative budget constraint specification that I used would cause an increase in savings, so cannot be to blame for this difference.
 
+
 ## Data
 The data required was obtained and adapted as follows:
 * PSID mortality info from from NCHS 1992 data (Chung 1994). In order to avoid a sharp drop in consumption at retirement due to a sudden morality risk, I scaled the data upwards to provide a smooth transition from the no-mortality risk during working periods to the retirements periods.
+
 ![](/images/survival_prob.png)
 
 * Life-cycle earnings profile from PSID data up to 1992 (Huggett, Ventura, & Yaron 2006). In order to match the brief description provided in the paper, the data was squeezed from the original age range of 20-60 to 25-60 and the last two data points were scaled down to provide a smooth curve.
+
 ![](/images/kappa.png)
 
 
@@ -29,6 +33,7 @@ The data required was obtained and adapted as follows:
 * Rouwenhorst stationary discretization for transitory component of income process
 * B-Spline interpolation using [Interoplations.jl](https://github.com/JuliaMath/Interpolations.jl)
 * Endogenous grid method
+
 
 ## Derivations
 I chose to employ a standard budget constraint for the retirement periods, rather than those described in the paper, which scale the asset by the mortality risk. This choice should induce a higher level of savings than that in the paper, as it removes the "risk" from the asset. The Euler equations used in my code, as well as my interpretation of those used in the paper, are derived in [this document](https://github.com/alpeters/KaplanViolante2010/blob/master/docs/KV2010.pdf).
