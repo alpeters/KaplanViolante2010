@@ -10,10 +10,8 @@ Some of the data used for calibration is not fully described in the article. I h
 The following figures correspond to Figure 1 in the paper:
 
 ![](/images/zbc_lifecycle_means.png)
-Format: ![ZBC Life-cycle Means](url)
 
 ![](/images/zbc_lifecycle_inequality.png)
-Format: ![ZBC Life-cycle Inequality](url)
 
 * less savings leads to sharp consumption drop
 * possible due to mortality risk data
@@ -24,11 +22,9 @@ Format: ![ZBC Life-cycle Inequality](url)
 The data required was obtained and adapted as follows:
 * PSID mortality info from from NCHS 1992 data (Chung 1994). In order to avoid a sharp drop in consumption at retirement due to a sudden morality risk, I scaled the data upwards to provide a smooth transition from the no-mortality risk during working periods to the retirements periods.
 ![](/images/survival_prob.png)
-Format: ![Unconditional Survival Probability](url)
 
 * Life-cycle earnings profile from PSID data up to 1992 (Huggett, Ventura, & Yaron 2006). In order to match the brief description provided in the paper, the data was squeezed from the original age range of 20-60 to 25-60 and the last two data points were scaled down to provide a smooth curve.
 ![](/images/kappa.png)
-Format: ![Life-cycle Earnings Profile](url)
 
 
 ## Methods
