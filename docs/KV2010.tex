@@ -1,33 +1,92 @@
-% Accompanying explanations and equations for replicating Kaplan & Violante 2010
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% General document
+% LaTeX Template
+%
+% Author:
+% Allen Peters
+%
+% Creation date:
+% September 27, 2019
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %-------------------------------------
 % CONFIGURATION
 %-------------------------------------
 
 \documentclass[11pt]{article}
-\usepackage{amsmath}
-\usepackage{amsfonts}
 
-%-------------------------------------
+\usepackage{geometry}
+\geometry{
+	paper=letterpaper, % Change to letterpaper for US letter
+	top=2.5cm, % Top margin
+	bottom=2.5cm, % Bottom margin
+	left=2.5cm, % Left margin
+	right=2.5cm, % Right margin
+	%showframe, % Uncomment to show how the type block is set on the page
+}
+
+\usepackage[backend=biber,style=apa,autocite=inline]{biblatex} \DeclareLanguageMapping{english}{english-apa}
+\addbibresource{/home/allenpeters/Data/Documents/PhD/EnviroMacro/enviroMacroBibDB.bib}
+
+%\usepackage{stix} % Use the Stix font by default
+%\usepackage{newtxtext,newtxmath} % closest to Times New Roman
+
+\usepackage{microtype} % Improve justification
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{ECON 516/ECON 622}
+\rhead{Allen Peters}
+\cfoot{\thepage}
+
+\author{}
+\date{}
+\title{}
+
+
+%---------------------------------------
 % DOCUMENT
-%-------------------------------------
+%---------------------------------------
 
 \begin{document}
 
+\section*{Derivations for replication of Kaplan \& Violante (2010)}
+This document contains derivations of Euler equations using the budget constraints in the paper, as well as a more standard version that does not scale assets by survival probability.
+
+\subsection*{Functional forms employed}
 
 \paragraph{Income process}
-$$ Y_{i t} =  \exp( \kappa_t + z_{i t} + \varepsilon_{i t})$$
+$$ y_{i t} =  \exp( \kappa_t + z_{i t} + \varepsilon_{i t})$$
 $$ z_{i t} = z_{i,t-1} + \eta_{i t} $$
-
 
 \paragraph{Utility Function}
 (Omitting i subscripts)
 $$ u(c_t) = \frac{1}{1-\gamma} c^{1-\gamma} $$
 $$ u_c(c_t) = c_t^{-\gamma} $$
 
-\paragraph{Retirement (FOC for T$_{ret}$-1:T-2)}
 
-From KV2010:
+\subsection*{Standard budget constraint}
+
+The following derivations are those implemented in the code {KV 2010.jl}. I omit $i$ subscripts.
+
+\subsection*{Kaplan \& Violante's budget constraint}
+
+The following derivations are following my interpretation of what is presented in the paper. I omit $i$ subscripts.
+
+\paragraph{Budget constraints}
+$$ c_t \frac{\xi_{t}}{\xi_{t+1}} a_{t+1} = (1+r) a_{t}+P(\tilde{y}) ~ $$
+$$
+\begin{aligned}
+c_{t}+a_{t+1}=(1+r) a_{t}+y_{t}, \quad \text { if } t<T^{r e t}\\
+&c_{t}+\left(\frac{\xi_{t}}{\xi_{t+1}}\right) a_{t+1}=(1+r) a_{t}+P\left(\tilde{\mathbf{Y}}_{i}\right), \quad \text { if } t \geq T^{r e t}
+\end{aligned}
+$$
+
+\paragraph{Retirement (FOC for T$_{ret}$:T-1)}
+
 \begin{equation*}
 \begin{split}
  V_{t}(a_{t+1}, \tilde{y}) &= \max_{c_t,a_{t+1}} u(c_{t}) + \beta \frac{\xi_{t+1}}{\xi_{t}} \mathbb{E}_t[V_{t+1}(a_{t+2}, \tilde{y})] \\

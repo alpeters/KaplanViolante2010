@@ -1,8 +1,9 @@
 # Todo List for KV_2010.jl
 # 1. RUN IT
 # 2. Update latex doc
-# 3. Port mods to bc version
-# 4. Non-zero borrowing limit (not idiosyncratic)
+# 3. 
+# 4. Port mods to bc version
+# 5. Non-zero borrowing limit (not idiosyncratic)
 # We allow for borrowing subject only to the restriction that with probability one,
 # households who live up to age T do not die in debt (i.e., the "natural debt limit").
 # The level of the natural debt limit depends on the discretization of the income

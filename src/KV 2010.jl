@@ -105,11 +105,12 @@ S_interp = LinearInterpolation(age_data, S_data)
 ξ_ret = map(S_interp,collect(60:95))
 ξ_raw = [ones(Float64,T_ret); ξ_ret]
 plot(age, ξ_raw[1:end-1], label = "Data",
- title="Unconditional Survival Probability", xlabel="Age", ylabel="Data")
+ title="Unconditional Survival Probability", xlabel="Age", ylabel="Data",
+ linestyle=:dash)
 ξ = [ones(Float64,T_ret); ξ_ret .+ (1-ξ_ret[1])]
 plot!(age, ξ[1:end-1], title="Unconditional Survival Probability",
  label="Adjusted")
-
+savefig("survival_prob.png")
 
 ## Preferences
 γ = 2.
@@ -149,7 +150,6 @@ y_data .*= 15/55.12 # scale to match plot in KV2010, work in 1000's
 # doesn't decline as much as KV describes.
 y_interp = LinearInterpolation(age_y, y_data, extrapolation_bc = Line())
 κ = log.(map(y_interp,collect(25:59)))
-# plot(25:59,exp.(κ))
 
 # Net labour income
 function Y(N, T_ret, σ_ε, σ_η, σ_z0, κ)
@@ -377,10 +377,10 @@ A = policyfn(mcs_z, mc_ε, r, β, γ, PY_tilde_vals, z_gridpoints, ε_gridpoints
 # heatmap(A[67])
 # A[1][:,:,1]
 # heatmap(A[35][:,:,10])
-# using JLD2, FileIO
-# vec_A = vec(A)
-# size_A = size(A)
-# @save "A.jld2" vec_A size_A
+using JLD2, FileIO
+vec_A = vec(A)
+size_A = size(A)
+@save "A.jld2" vec_A size_A
 # @load "A.jld2" vec_A size_A
 # A1 = reshape(vec_A, size_A[1])
 # @test dropdims(sol.V, dims = 3) == V
@@ -411,9 +411,12 @@ plot!(age, Yi_ave, linestyle=:dash, label = "Income")
 
 Ai_ave = mean(Ai, dims = 1)'
 plot!(age, Ai_ave[1:T], label = "Wealth", linestyle=:dash)
+savefig("zbc_lifecycle_means.png")
 
 plot(age[1:T_ret], exp.(κ), legend=:false, title="Average Income Profile",
  xlabel="Age", ylabel="\$ (,000)", ylims=(0,30), grid=false)
+savefig("kappa.png")
+
 #
 # # "Initial should be"
 # 54/168*0.5
@@ -435,3 +438,5 @@ plot(age, Ci_varlog[1:T], label = "Consumption", linestyle=:dash,
 
 Yi_varlog = var(log.(Y_tot), dims = 1)'
 plot!(age, Yi_varlog[1:T], label = "Income", linestyle=:dash)
+
+savefig("zbc_lifecycle_inequality.png")
