@@ -7,16 +7,13 @@ Addtionally, the discretization method of the non-stationary income process is n
 Some of the data used for calibration is not fully described in the article. I have documented below the data I used that hopefully closely resembles that used by the authors. Finally, I to-date, I have only implemented the zero borrowing constraint (ZBC), not the natural borrowing constraint (NBC).
 
 ## Results and Discussion
-The following figures correspond to Figure 1 in the paper:
+The following figures correspond to Figure 1 in the paper, with the same axes for ease of comparison:
 
 ![](/images/zbc_lifecycle_means.png)
 
 ![](/images/zbc_lifecycle_inequality.png)
 
-* less savings leads to sharp consumption drop
-* possible due to mortality risk data
-* budget constraints
-* 
+It is immediately apparent that the level of savings is significantly lower than that in the paper. This leads to a sharp consumption drop at the beginning of retirement. One possible source of this discrepancy may be due to a different mortality risk, as the data was not described in the paper. It is also possible that there is a bug in my code that I haven't yet located. The alternative budget constraint specification that I used would cause an increase in savings, so cannot be to blame for this difference.
 
 ## Data
 The data required was obtained and adapted as follows:
