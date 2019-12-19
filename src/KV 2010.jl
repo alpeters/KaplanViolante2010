@@ -106,7 +106,7 @@ S_interp = LinearInterpolation(age_data, S_data)
 ξ_raw = [ones(Float64,T_ret); ξ_ret]
 plot(age, ξ_raw[1:end-1], label = "Data",
  title="Unconditional Survival Probability", xlabel="Age", ylabel="Data",
- linestyle=:dash)
+ linestyle=:dash, grid=false)
 ξ = [ones(Float64,T_ret); ξ_ret .+ (1-ξ_ret[1])]
 plot!(age, ξ[1:end-1], title="Unconditional Survival Probability",
  label="Adjusted")
