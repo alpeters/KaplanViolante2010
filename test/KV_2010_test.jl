@@ -304,7 +304,7 @@ A_prime = interpolate_cols(A,A_prime_grid,A_prime_grid, extrapolation_bc = Flat(
 
 
 A_vals = 0:0.1:1
-A = [x^2 for x in A_vals]
+A = [log(x) for x in A_vals]
 scatter(A_vals,A)
 li = LinearInterpolation(A,A_vals, extrapolation_bc=Flat())
 A_inv = li.(A_vals)
@@ -312,15 +312,16 @@ scatter!(A_vals,A_inv)
 
 # Check invert_rule
 using Interpolations, Plots
-A_vals = 0:0.01:1
+A_vals = 0.1:0.01:1.5
 Y_vals = 0.1:0.1:0.3
-A = [y + x^2 for x in A_vals, y in Y_vals]
+A = [y + x^3 for x in A_vals, y in Y_vals]
+minimum(A[:,1])
 plot([0; 1],[0; 1], linestyle=:dash, legend=:bottomright)
-plot!(A_vals,A[:,1])
+plot!(A_vals,A[:,2])
 # plot!(A_vals,A[:,2])
 # plot!(A_vals,A[:,3])
-A_inv = invert_rule(A, A_vals, extrapolation_bc = Flat())
-plot!(A_vals,A_inv[:,1])
+A_inv = invert_rule(A, A_vals, extrapolation_bc = 0.)
+plot!(A_vals,A_inv[:,2])
 # plot!(A_vals,A_inv[:,2])
 # plot!(A_vals,A_inv[:,3])
 # ylims!(0,1)
@@ -376,3 +377,71 @@ li(0,2)
 plotly()
 plot(A,st=:surface)
 plot!([2 2.5],[1 1],[li(0,2) li(0,2.5)],st=:scatter3d)
+
+function mytestfunc(A_vals, Y_vals)
+    for i = 1
+        li1 = LinearInterpolation(A_vals,Y_vals)
+    end
+    for i = 2:3
+        @show s = li1(2.)
+        li2 = LinearInterpolation(A_vals.+i,Y_vals)
+    end
+end
+
+mytestfunc([1;2; 3],[1; 4; 9])
+# interpolation object doesn't get passed between for loops,
+# have to define at the beginning of each
+
+
+
+        #             (A_vals, mcs_z[t+1].state_values, mc_ε.state_values)
+        # grid_shift(A[t+1], Z_vals_old, Z_vals_new, dims = 2)
+        # li = LinearInterpolation((A_vals,mcs_z[t].state_values,),A[t+2] , extrapolation_bc=Flat())
+
+
+        # function grid_shift(A, A_vals_old, A_vals_new, Y_vals_old, Y_vals_new)
+        #     A_grid = zeros( eltype(A[1]), length(A_vals_new), length(Y_vals_new) )
+        #
+        #     # Find relative coordinates of new basis
+        #     li = LinearInterpolation(Y_vals_old, 1:length(Y_vals_old), extrapolation_bc=Line())
+        #     Y_ind = li(Y_vals_new)
+        #     li = LinearInterpolation(A_vals_old, 1:length(A_vals_old), extrapolation_bc=Line())
+        #     A_ind = li(A_vals_new)
+        #
+        #     # Bi-linear interpolation on new coordinates
+        #     li = extrapolate(interpolate(A, BSpline(Linear()) ), Line())  #extrapolate with boundary rules
+        #     [ A_grid[i,j] = li(A_ind, Y_ind) for  (i, A_ind) in enumerate(A_ind),
+        #                                                 (j, Y_ind) in enumerate(Y_ind)]
+        #     return A_grid
+        # end
+
+
+
+## Income process troubleshoot/calibration
+
+# Net labour income
+function Y(N, T_ret, σ_ε, σ_η, σ_z0, κ)
+# Takes standard deviations as arguments (not varicances)!
+    Y = zeros(Float64, N, T_ret-1)
+    z = similar(Y)
+    ε = similar(Y)
+    z[:,1] = σ_z0 .* randn(N) + σ_η .* randn(N)
+
+    for t in 1:(T_ret-1)
+        ε[:,t] = σ_ε .* randn(N)
+        Y[:,t] = exp.( κ[t] .+ z[:,t] + ε[:,t] )
+        t < (T_ret-1) ? z[:,t+1] = z[:,t] + σ_η .* randn(N) : nothing
+    end
+    return (Y, z, ε)
+end
+
+(Y_l, z_l, ε_l) = Y(10000000, 2, σ_ε, σ_η, σ_z0, κ)
+(Y_l, z_l, ε_l) = Y(N, T_ret, σ_ε, 0., 0., κ)
+Y_tot = hcat(Y_l, repeat(Y_SS, 1, (T-1)-(T_ret-1)) )
+mean(Y_l, dims = 1)
+exp(κ[1])
+mean(z_l, dims = 1)
+exp(κ[1] + mean(z_l[:,1]) + mean(ε_l[:,1]))
+
+
+li = LinearInterpolation(zeros(10), 1:10)

@@ -1,0 +1,13 @@
+# Todo List for KV_2010.jl
+# 1. RUN IT
+# 2. Update latex doc
+# 3. Port mods to bc version
+# 4. Non-zero borrowing limit (not idiosyncratic)
+# We allow for borrowing subject only to the restriction that with probability one,
+# households who live up to age T do not die in debt (i.e., the "natural debt limit").
+# The level of the natural debt limit depends on the discretization of the income
+# process, through the level of the lowest possible income realization. In the
+# benchmark economy, the natural borrowing limit decreases from approximately
+# 5.8 times average annual earnings at age 25 to 2 5 times average earnings at age 50.
+# 7. Survival probability in KV? test both ways
+# 8. Y_tilde_fn: Select an algorithm, with a derivative? Linear interpolation may be much faster
