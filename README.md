@@ -1,7 +1,7 @@
 # Kaplan Violante 2010
 ## Final project for ECON 516
 
-This code replicates the heterogeneous agents life-cycle model from Kaplan & Violante (2010). While some of the details in the paper are sparse, I have tried to follow the same methods as much as possible. In particular, the discretization method of the non-stationary income process is unclear. I followed the Rouwenhorst method for non-stationary processes outlined in Fella, Gallipoli, & Pan (2019). I built this on top the [QuantEcon.jl](https://github.com/QuantEcon/QuantEcon.jl) package discretization functionality and intend to contribute it when ready.
+The code [KV 2010.jl](src/KV 2010.jl) replicates the heterogeneous agents life-cycle model from Kaplan & Violante (2010). While some of the details in the paper are sparse, I have tried to follow the same methods as much as possible. In particular, the discretization method of the non-stationary income process is unclear. I followed the Rouwenhorst method for non-stationary processes outlined in Fella, Gallipoli, & Pan (2019). I built this on top the [QuantEcon.jl](https://github.com/QuantEcon/QuantEcon.jl) package discretization functionality and intend to contribute it when ready.
 
 ## Results
 [Insert Figure]
