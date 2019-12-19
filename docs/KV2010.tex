@@ -34,7 +34,8 @@
 %\usepackage{newtxtext,newtxmath} % closest to Times New Roman
 
 \usepackage{microtype} % Improve justification
-
+\usepackage{amsmath}
+\usepackage{amsfonts}
 \usepackage{fancyhdr}
 \pagestyle{fancy}
 \fancyhf{}
@@ -54,7 +55,7 @@
 \begin{document}
 
 \section*{Derivations for replication of Kaplan \& Violante (2010)}
-This document contains derivations of Euler equations using the budget constraints in the paper, as well as a more standard version that does not scale assets by survival probability.
+This document contains derivations of Euler equations using the budget constraints in the paper, as well as a more standard version that does not scale assets by survival probability. Notice that I may have used slightly different timing, as $T_{ret}$ is the last working year for my derivations, and T is the last year of life.
 
 \subsection*{Functional forms employed}
 
@@ -72,54 +73,34 @@ $$ u_c(c_t) = c_t^{-\gamma} $$
 
 The following derivations are those implemented in the code {KV 2010.jl}. I omit $i$ subscripts.
 
-\subsection*{Kaplan \& Violante's budget constraint}
-
-The following derivations are following my interpretation of what is presented in the paper. I omit $i$ subscripts.
-
 \paragraph{Budget constraints}
-$$ c_t \frac{\xi_{t}}{\xi_{t+1}} a_{t+1} = (1+r) a_{t}+P(\tilde{y}) ~ $$
 $$
 \begin{aligned}
-c_{t}+a_{t+1}=(1+r) a_{t}+y_{t}, \quad \text { if } t<T^{r e t}\\
-&c_{t}+\left(\frac{\xi_{t}}{\xi_{t+1}}\right) a_{t+1}=(1+r) a_{t}+P\left(\tilde{\mathbf{Y}}_{i}\right), \quad \text { if } t \geq T^{r e t}
+c_{t}+a_{t+1} &=(1+r) a_{t}+y_{t}, \quad \text { if } t \leq T^{r e t}\\
+c_{t} + a_{t+1} &= (1+r) a_{t}+P\left(\tilde{y}\right), \quad \text { if } t > T^{r e t}
 \end{aligned}
 $$
 
-\paragraph{Retirement (FOC for T$_{ret}$:T-1)}
+\paragraph{Retirement ($t \in [T_{ret}+1, T]$)}
 
 \begin{equation*}
 \begin{split}
- V_{t}(a_{t+1}, \tilde{y}) &= \max_{c_t,a_{t+1}} u(c_{t}) + \beta \frac{\xi_{t+1}}{\xi_{t}} \mathbb{E}_t[V_{t+1}(a_{t+2}, \tilde{y})] \\
-  \text{s.t. } c_t &= (1+r) a_{t}+P(\tilde{y}) - \frac{\xi_{t}}{\xi_{t+1}} a_{t+1}
+ V_{t}(a_{t+1}, \tilde{y}) &= \max_{c_t,a_{t+1}} u(c_{t}) + \beta \frac{\xi_{t+1}}{\xi_{t}} V_{t+1}(a_{t+2}, \tilde{y}) \\
+  \text{s.t. } c_t &= (1+r) a_{t}+P(\tilde{y}) - a_{t+1}
 \end{split}
 \end{equation*}
 
-$$ \frac{\partial{u(c_t)}}{\partial{a_{t+1}}} = -\frac{\xi_t}{\xi_{t+1}} c_t^{-\gamma} $$
+$$ \frac{\partial{u(c_t)}}{\partial{a_{t+1}}} = - c_t^{-\gamma} $$
 
 $$ \frac{\partial{V_{t+1}(\cdot)}}{\partial{a_{t+1}}} = (1+r) c_{t+1}^{-\gamma} $$
 
 $$ \Rightarrow c_t^{-\gamma} = \beta \left(
-    \frac{\xi_{t+1}}{\xi_t} \right) ^2 (1+r) c_{t+1}^{-\gamma} $$
+    \frac{\xi_{t+1}}{\xi_t} \right) (1+r) c_{t+1}^{-\gamma} $$
 $$ \Rightarrow c_t = \left(\beta \left(
-    \frac{\xi_{t+1}}{\xi_t} \right) ^2 (1+r) \right)^{-1/\gamma} c_{t+1} $$
-
-FOC for retirement:
-$$ \frac{\xi_t}{\xi_{t+1}} c_t^{-\gamma} = \beta \frac{\xi_t}{\xi_{t+1}} (1+r) c_{t+1}^{-\gamma} $$
+    \frac{\xi_{t+1}}{\xi_t} \right) (1+r) \right)^{-1/\gamma} c_{t+1} $$
 
 
-\paragraph{Following Giovanni's notes, would have:}
-\begin{equation*}
-\begin{split}
- V_{t}(a_{t+1}, \tilde{y}) &= \max_{c_t,a_{t+1}} u(c_{t}) + \beta \frac{\xi_{t+1}}{\xi_{t}} \mathbb{E}_t[V_{t+1}(a_{t+2}, \tilde{y})] \\
- \text{s.t. } c_t &= (1+r) a_{t}+P(\tilde{y}) - a_{t+1}
-\end{split}
-\end{equation*}
-
-$$ \Rightarrow c_t^{-\gamma} = \beta \frac{\xi_{t+1}}{\xi_t} (1+r) c_{t+1}^{-\gamma} $$
-$$ \Rightarrow c_t = \left(\beta \frac{\xi_{t+1}}{\xi_t} (1+r) \right)^{-1/\gamma} c_{t+1} $$
-
-
-\paragraph{Working years (FOC for T=1:T$_{ret}$-2)}
+\paragraph{Working periods ($ t \in [1,T$_{ret}-1]$})
 
 \begin{equation*}
 \begin{split}
@@ -150,6 +131,37 @@ a_{t} &= \frac{1}{1+r} \left( c_t + a_{t+1} - y_t \right) \\
 \end{split}
 \end{equation}
 
+\subsection*{Kaplan \& Violante's budget constraint}
+
+The following derivations are following my interpretation of what is presented in the paper. I omit $i$ subscripts.
+
+\paragraph{Budget constraints}
+$$
+\begin{aligned}
+c_{t}+a_{t+1} &=(1+r) a_{t}+y_{t}, \quad \text { if } t<T^{r e t}\\
+c_{t}+\left(\frac{\xi_{t}}{\xi_{t+1}}\right) a_{t+1} &= (1+r) a_{t}+P\left(\tilde{y}\right), \quad \text { if } t \geq T^{r e t}
+\end{aligned}
+$$
+
+\paragraph{Retirement ($t \in [T_{ret}, T]$)}
+
+\begin{equation*}
+\begin{split}
+ V_{t}(a_{t+1}, \tilde{y}) &= \max_{c_t,a_{t+1}} \xi_{t} u(c_{t}) + \beta \xi_{t+1} \mathbb{E}_t[V_{t+1}(a_{t+2}, \tilde{y})] \\
+  \text{s.t. } c_t &= (1+r) a_{t}+P(\tilde{y}) - \frac{\xi_{t}}{\xi_{t+1}} a_{t+1}
+\end{split}
+\end{equation*}
+
+$$ \frac{\partial{u(c_t)}}{\partial{a_{t+1}}} = -\xi_t \frac{\xi_t}{\xi_{t+1}} c_t^{-\gamma} $$
+
+$$ \frac{\partial{V_{t+1}(\cdot)}}{\partial{a_{t+1}}} = (1+r) c_{t+1}^{-\gamma} $$
+
+$$ \Rightarrow c_t^{-\gamma} = \beta \left(
+    \frac{\xi_{t+1}}{\xi_t} \right) ^2 (1+r) c_{t+1}^{-\gamma} $$
+$$ \Rightarrow c_t = \left(\beta \left(
+    \frac{\xi_{t+1}}{\xi_t} \right) ^2 (1+r) \right)^{-1/\gamma} c_{t+1} $$
+
+\end{document}
 
 % \begin{equation*}
 % \begin{aligned}
@@ -163,16 +175,28 @@ a_{t} &= \frac{1}{1+r} \left( c_t + a_{t+1} - y_t \right) \\
 % \end{aligned}
 % \end{equation*}
 
+%
+% \\
+% &= \max_{a_t} u((1+r) a_{t}+P(\tilde{\mathbf{Y}}) - \frac{\xi_{t}}{\xi_{t+1}} a_{t+1}) + \beta \frac{\xi_{t+1}}{\xi_{t}} \mathbb{E}_t[\tilde{V}_{t+1}(a_{t+1}, c_{t+1}, z_{t+1})] \\
+% &= \sum_{z_{t+1}} \sum_{\varepsilon} \pi(z_{t+1}|z_t) \pi(\varepsilon)
+%  \tilde{V}_{t+1}(a_{t+1}, z_{t+1})
+%
+% &= \sum_{\eta_{t+1}|z_t} \sum_{\varepsilon_t} \pi_{\eta,t}(\eta_{t+1}|z_t) \pi_\varepsilon(\varepsilon_{t+1}) \left((1+r)a_{t+1} + e^{(\kappa_{t+1} + z_t + \eta_{t+1} + \varepsilon_{t+1})} - a_{t+2} \right)^{-\gamma}
+%
+%
+% $$c_t + a_{t+1} &= (1+r) a_{t}+y_t = (1+r) a_{t} + \exp( \kappa_t + z_{t} + \varepsilon_{t})$$
 
-\end{document}
+% FOC for retirement:
+% $$ \frac{\xi_t}{\xi_{t+1}} c_t^{-\gamma} = \beta \frac{\xi_t}{\xi_{t+1}} (1+r) c_{t+1}^{-\gamma} $$
 
-
-\\
-&= \max_{a_t} u((1+r) a_{t}+P(\tilde{\mathbf{Y}}) - \frac{\xi_{t}}{\xi_{t+1}} a_{t+1}) + \beta \frac{\xi_{t+1}}{\xi_{t}} \mathbb{E}_t[\tilde{V}_{t+1}(a_{t+1}, c_{t+1}, z_{t+1})] \\
-&= \sum_{z_{t+1}} \sum_{\varepsilon} \pi(z_{t+1}|z_t) \pi(\varepsilon)
- \tilde{V}_{t+1}(a_{t+1}, z_{t+1})
-
-&= \sum_{\eta_{t+1}|z_t} \sum_{\varepsilon_t} \pi_{\eta,t}(\eta_{t+1}|z_t) \pi_\varepsilon(\varepsilon_{t+1}) \left((1+r)a_{t+1} + e^{(\kappa_{t+1} + z_t + \eta_{t+1} + \varepsilon_{t+1})} - a_{t+2} \right)^{-\gamma}
-
-
-$$c_t + a_{t+1} &= (1+r) a_{t}+y_t = (1+r) a_{t} + \exp( \kappa_t + z_{t} + \varepsilon_{t})$$
+% % \paragraph{Working periods ($ t \in [1,T_{ret}] $)}
+% %
+% % \begin{equation*}
+% % \begin{split}
+% %  V_{t}(a_{t+1}, \tilde{y}) &= \max_{c_t,a_{t+1}} u(c_{t}) + \beta \frac{\xi_{t+1}}{\xi_{t}} \mathbb{E}_t[V_{t+1}(a_{t+2}, \tilde{y})] \\
+% %  \text{s.t.} ~ c_t &= (1+r) a_{t} + y_t - a_{t+1}
+% % \end{split}
+% % \end{equation*}
+%
+% $$ \Rightarrow c_t^{-\gamma} = \beta \frac{\xi_{t+1}}{\xi_t} (1+r) c_{t+1}^{-\gamma} $$
+% $$ \Rightarrow c_t = \left(\beta \frac{\xi_{t+1}}{\xi_t} (1+r) \right)^{-1/\gamma} c_{t+1} $$
